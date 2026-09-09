@@ -8,6 +8,7 @@ import { parseManifest, discoverManifests, discoverBundledManifests } from "./ex
 import { installExtension, removeExtension, devLinkExtension, ensureExtensionsDir } from "./extension-installer.ts";
 import { registerVscodeCompatHandlers } from "./extension-rpc-handlers.ts";
 import { getPpmDir } from "./ppm-dir.ts";
+import { isCompiledBinary } from "./autostart-generator.ts";
 
 /**
  * Where the bundled `packages/ext-*` extensions live on disk.
@@ -29,6 +30,37 @@ export function bundledExtensionsDir(
   return resolve(dirname(execPath), "../packages");
 }
 
+/**
+ * How to name the extension host worker so Bun will actually load it.
+ *
+ * Neither form works in both modes, which is why this is a branch and not a constant:
+ *
+ * - `new URL("./extension-host-worker.ts", import.meta.url)` is right from source — it is
+ *   anchored to this module, so it survives the service's `WorkingDirectory=~/.ppm`. From a
+ *   compiled binary it yields `file:///$bunfs/root/...`, the embedded filesystem, and Bun
+ *   refuses to resolve a worker entry point there: the Worker fails to build and dies at once.
+ *   `ensureWorker` only null-checks, so every later activation posts to the corpse and reports
+ *   `Worker has been terminated`.
+ * - A relative specifier is right when compiled — but it resolves against the directory of the
+ *   build's *main entry point* (`src/index.ts`), not against this module, so it reads
+ *   `./services/...` rather than `./`. Verified at cwd `/`, `~/.ppm` and the binary's own
+ *   directory; every other spelling tried (`./extension-host-worker.ts`, `src/services/...`,
+ *   the `/$bunfs/` path) is refused. From source the same specifier resolves against cwd, so
+ *   it breaks the moment cwd is not this directory, which for the service it never is.
+ *
+ * The worker also has to be a second entry point of `bun build --compile` (see the `build`
+ * script) — a worker referenced only through `new URL` is not pulled into the binary.
+ *
+ * Compiling this way also keeps the worker's own imports (`@ppm/vscode-compat`) inside the
+ * bundle, where loading it off disk would have to resolve them through `node_modules` — which
+ * a worker spawned from a compiled binary does not do.
+ */
+export function extensionHostWorkerSpec(compiled: boolean = isCompiledBinary()): string {
+  return compiled
+    ? "./services/extension-host-worker.ts"
+    : new URL("./extension-host-worker.ts", import.meta.url).href;
+}
+
 class ExtensionService {
   private worker: Worker | null = null;
   private rpc: RpcChannel | null = null;
@@ -44,8 +76,7 @@ class ExtensionService {
   private ensureWorker(): { worker: Worker; rpc: RpcChannel } {
     if (this.worker && this.rpc) return { worker: this.worker, rpc: this.rpc };
 
-    const workerPath = new URL("./extension-host-worker.ts", import.meta.url).href;
-    this.worker = new Worker(workerPath, { type: "module" });
+    this.worker = new Worker(extensionHostWorkerSpec(), { type: "module" });
     this.rpc = new RpcChannel((msg) => this.worker!.postMessage(msg));
 
     this.rpc.onRequest("storage:set", async (params) => {
