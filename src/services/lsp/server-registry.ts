@@ -109,6 +109,26 @@ export const LANGUAGE_SERVERS: LanguageServerDefinition[] = [
         includeCompletionsWithSnippetText: true,
         includeCompletionsWithInsertText: true,
         importModuleSpecifierPreference: "shortest",
+        // Inlay hints are opt-in *per kind* on the server side, and tsserver
+        // returns an empty array for every one that is off. Without these the
+        // editor asks, the server answers "no hints", and a feature that is
+        // switched on in Monaco shows nothing at all — measured as 0 hints for
+        // a 2233-line file.
+        //
+        // Parameter names only. Those are the ones worth reading — they say
+        // what a bare `true` or a positional array index means at a call site.
+        // The type hints (variable, property, return) are the noisy ones: they
+        // restate what the code already says on most lines, and VS Code ships
+        // all of them off.
+        includeInlayParameterNameHints: "all",
+        // `foo(name)` for `foo(name: string)` is the one hint that never adds
+        // anything, so it is suppressed the way VS Code suppresses it.
+        includeInlayParameterNameHintsWhenArgumentMatchesName: false,
+        includeInlayEnumMemberValueHints: true,
+        includeInlayFunctionLikeReturnTypeHints: false,
+        includeInlayFunctionParameterTypeHints: false,
+        includeInlayVariableTypeHints: false,
+        includeInlayPropertyDeclarationTypeHints: false,
       },
     },
   },

@@ -12,6 +12,7 @@ import { useInlineBlame } from "@/hooks/use-inline-blame";
 import { useLsp, notifyLspSave } from "@/hooks/use-lsp";
 import { registerLspNavigation } from "@/lib/lsp/lsp-navigation";
 import { disableBuiltinTypeScript } from "@/lib/lsp/monaco-builtin-typescript";
+import { EDITOR_FONT_FAMILY } from "@/lib/editor-font";
 import { LspStatus } from "./lsp-status";
 import { useOpenProblems } from "@/components/problems/problems-status";
 import { Loader2, FileWarning, Play, Database, ExternalLink, X, GripHorizontal, ShieldCheck, ShieldOff, ListTree } from "lucide-react";
@@ -827,7 +828,7 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
             theme={monacoTheme}
             options={{
               fontSize: 13,
-              fontFamily: "Menlo, Monaco, Consolas, monospace",
+              fontFamily: EDITOR_FONT_FAMILY,
               wordWrap: wordWrap ? "on" : "off",
               minimap: { enabled: false },
               scrollBeyondLastLine: false,

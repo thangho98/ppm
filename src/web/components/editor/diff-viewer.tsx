@@ -4,6 +4,7 @@ import { api, projectUrl } from "@/lib/api-client";
 import { useShallow } from "zustand/react/shallow";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useMonacoTheme } from "@/lib/use-monaco-theme";
+import { EDITOR_FONT_FAMILY } from "@/lib/editor-font";
 import { onHostResize } from "@/components/floating-window/pip/pip-resize-signal";
 import { Loader2, FileCode, WrapText, UserRound } from "lucide-react";
 import { useInlineBlame } from "@/hooks/use-inline-blame";
@@ -289,7 +290,7 @@ export function DiffViewer({ metadata }: DiffViewerProps) {
             }}
             options={{
               fontSize: isMobile ? 11 : 13,
-              fontFamily: "Menlo, Monaco, Consolas, monospace",
+              fontFamily: EDITOR_FONT_FAMILY,
               diffWordWrap: isMobile ? "on" : wordWrap ? "on" : "off",
               renderSideBySide,
               useInlineViewWhenSpaceIsLimited: false,
