@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { gitService } from "../../services/git.service.ts";
 import { gitHunksService, type HunkRequest, type HunkScope } from "../../services/git-hunks/git-hunks.service.ts";
+import { gitBlameService } from "../../services/git-blame/git-blame.service.ts";
 import { ok, err } from "../../types/api.ts";
 
 type Env = { Variables: { projectPath: string; projectName: string } };
@@ -159,6 +160,26 @@ gitRoutes.post("/unstage", async (c) => {
     if (!files?.length) return c.json(err("Missing: files"), 400);
     await gitService.unstage(projectPath, files);
     return c.json(ok({ unstaged: files }));
+  } catch (e) {
+    return c.json(err((e as Error).message), 500);
+  }
+});
+
+/**
+ * GET /git/blame?path=&rev= — the whole file's blame, for the editor annotation.
+ *
+ * `rev` blames the file as it stood at that revision, which is what each side of
+ * the diff viewer needs; omitted, it blames the working tree.
+ */
+gitRoutes.get("/blame", async (c) => {
+  try {
+    const projectPath = c.get("projectPath");
+    const filePath = c.req.query("path");
+    if (!filePath) return c.json(err("Missing: path"), 400);
+    const rev = c.req.query("rev") || undefined;
+    const result = await gitBlameService.blameFile(projectPath, filePath, rev);
+    // Untracked, or absent at that revision — not an error the UI should show.
+    return c.json(ok(result ?? { lines: [], commits: {} }));
   } catch (e) {
     return c.json(err((e as Error).message), 500);
   }
