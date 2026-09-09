@@ -16,6 +16,7 @@ import { mkdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { LspManager, isUnavailable, type LspHandle } from "../../src/services/lsp/lsp-manager.ts";
+import { semanticTokensLegendOf } from "../../src/web/lib/lsp/lsp-semantic-tokens.ts";
 import { pathToFileUri } from "../../src/shared/lsp-uri.ts";
 
 const PROJECT = join(tmpdir(), "ppm-lsp-e2e");
@@ -167,6 +168,34 @@ async function main(): Promise<void> {
       (d as { message: string }).message.includes("not assignable")),
     diagnostics.map((d) => (d as { message?: string }).message),
   );
+
+  // Semantic tokens: a legend, then indices into it. The whole feature is a
+  // silent no-op if either half is missing, so both are checked here rather
+  // than trusted.
+  const legend = semanticTokensLegendOf(session.serverCapabilities);
+  check("advertises a semantic tokens legend", legend !== null, legend?.tokenTypes?.length);
+
+  const tokens = (await session.request("textDocument/semanticTokens/full", {
+    textDocument: { uri },
+  })) as { data?: number[] } | null;
+  const data = tokens?.data ?? [];
+  check("returns semantic tokens for the file", data.length > 0 && data.length % 5 === 0, data.length);
+
+  if (legend && data.length >= 5) {
+    // The first token in the file is `User` on line 0 — an interface. Decoding
+    // it proves the indices mean what the legend says, which is the part that
+    // silently mis-colours everything when it is wrong.
+    const types = new Set<string>();
+    for (let i = 0; i < data.length; i += 5) {
+      const name = legend.tokenTypes[data[i + 3]!];
+      if (name) types.add(name);
+    }
+    check(
+      "decodes token types the theme has colours for",
+      types.has("interface") && types.has("function"),
+      [...types],
+    );
+  }
 
   await manager.disposeAll();
   check("stops the server", session.state === "stopped", session.state);

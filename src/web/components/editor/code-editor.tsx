@@ -845,6 +845,10 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
               suggestSelection: "first",
               parameterHints: { enabled: true },
               inlayHints: { enabled: "on" },
+              // Standalone Monaco hardcodes its themes' `semanticHighlighting`
+              // to false and the default here follows the theme, so this is the
+              // only switch that turns server token colouring on at all.
+              "semanticHighlighting.enabled": true,
               // Sticky scroll costs a row of vertical space, which is free on a
               // desktop and expensive on a phone.
               stickyScroll: { enabled: !isMobile },

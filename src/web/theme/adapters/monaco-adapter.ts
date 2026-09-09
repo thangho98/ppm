@@ -3,6 +3,7 @@ import type { PpmTheme } from "../types";
 import { THEME_CHANGE_EVENT, getCurrentAppliedTheme } from "../apply-theme";
 import { resolveTheme } from "../resolve-theme";
 import { useSettingsStore } from "@/stores/settings-store";
+import { semanticTokenRules } from "../semantic-token-rules";
 
 /**
  * Monaco theming driven by PpmTheme. Monaco rejects `rgba()` color strings, so
@@ -45,7 +46,9 @@ async function ensureDefined(theme: PpmTheme): Promise<string> {
   monaco.editor.defineTheme(name, {
     base: theme.mode === "dark" ? "vs-dark" : "vs",
     inherit: true,
-    rules: theme.editor?.rules ?? [],
+    // Semantic rules first, so a theme's own rules still win. Monaco resolves
+    // a language server's token types through this same table.
+    rules: [...semanticTokenRules(theme.mode), ...(theme.editor?.rules ?? [])],
     colors: deriveColors(theme),
   });
   return name;

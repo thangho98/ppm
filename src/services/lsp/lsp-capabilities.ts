@@ -8,9 +8,9 @@
  * the Monaco bridge does not implement produces a response shape nothing reads,
  * which shows up as a feature that silently does nothing.
  *
- * So every entry here has a counterpart in `register-providers.ts`, and
- * anything not implemented there is deliberately absent — notably semantic
- * tokens, which needs a legend the bridge does not consume yet.
+ * So every entry here has a counterpart in `register-providers.ts` (or, for
+ * semantic tokens, in `lsp-semantic-tokens.ts`), and anything not implemented
+ * there is deliberately absent.
  */
 
 export const CLIENT_CAPABILITIES = {
@@ -104,6 +104,36 @@ export const CLIENT_CAPABILITIES = {
     inlayHint: {
       dynamicRegistration: false,
       resolveSupport: { properties: ["tooltip", "label.tooltip"] },
+    },
+    semanticTokens: {
+      dynamicRegistration: false,
+      // The legend the *client* would prefer. A server answers with its own in
+      // the initialize result and indexes into that one, so this is only a
+      // hint; the browser reads the server's legend and never assumes these.
+      tokenTypes: [
+        "namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
+        "parameter", "variable", "property", "enumMember", "event", "function",
+        "method", "macro", "keyword", "modifier", "comment", "string", "number",
+        "regexp", "operator", "decorator",
+      ],
+      tokenModifiers: [
+        "declaration", "definition", "readonly", "static", "deprecated",
+        "abstract", "async", "modification", "documentation", "defaultLibrary",
+      ],
+      // Relative is the only encoding in the specification, and the only one
+      // Monaco's provider accepts — the arrays pass through untouched.
+      formats: ["relative"],
+      requests: {
+        // Whole document only. A range request exists for the visible viewport,
+        // but Monaco drives its own range provider separately and registering
+        // both would ask the server for the same tokens twice.
+        range: false,
+        full: { delta: true },
+      },
+      overlappingTokenSupport: false,
+      multilineTokenSupport: false,
+      serverCancelSupport: false,
+      augmentsSyntaxTokens: true,
     },
   },
   workspace: {

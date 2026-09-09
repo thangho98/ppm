@@ -23,6 +23,7 @@ import {
 import { registerLspDocument, unregisterLspDocument } from "@/lib/lsp/lsp-documents";
 import { registerLspProviders } from "@/lib/lsp/register-providers";
 import { fromLspRange, markerSeverity } from "@/lib/lsp/lsp-monaco";
+import { registerSemanticTokens, semanticTokensLegendOf } from "@/lib/lsp/lsp-semantic-tokens";
 import { useProblemsStore } from "@/stores/problems-store";
 
 export interface UseLspOptions {
@@ -86,7 +87,15 @@ export function useLsp({ editor, monaco, projectName, filePath, enabled }: UseLs
     registerLspDocument(model, { connection, path: filePath });
 
     const offStatus = connection.onStatus((path, next) => {
-      if (path === filePath) setStatus(next);
+      if (path !== filePath) return;
+      setStatus(next);
+      // Semantic tokens are indices into a legend only the server knows, so the
+      // provider cannot be registered until one has answered. Idempotent per
+      // language, so every editor mount arriving here costs nothing.
+      if (next.state === "ready") {
+        const legend = semanticTokensLegendOf(next.capabilities);
+        if (legend) registerSemanticTokens(monaco, model.getLanguageId(), legend);
+      }
     });
 
     const offNotification = connection.onNotification((method, params) => {
