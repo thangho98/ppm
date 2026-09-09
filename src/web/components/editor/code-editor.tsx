@@ -9,6 +9,9 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { basename } from "@/lib/utils";
 import { useMonacoTheme } from "@/lib/use-monaco-theme";
 import { useInlineBlame } from "@/hooks/use-inline-blame";
+import { useLsp, notifyLspSave } from "@/hooks/use-lsp";
+import { registerLspNavigation } from "@/lib/lsp/lsp-navigation";
+import { LspStatus } from "./lsp-status";
 import { Loader2, FileWarning, Play, Database, ExternalLink, X, GripHorizontal, ShieldCheck, ShieldOff } from "lucide-react";
 import { EditorBreadcrumb } from "./editor-breadcrumb";
 import { EditorToolbar } from "./editor-toolbar";
@@ -388,6 +391,24 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
     enabled: inlineBlame && canBlame,
   });
 
+  // Real language intelligence, from a real language server on the host.
+  //
+  // Gated on the same three things as blame plus one more: an external file
+  // (outside any project) has no project whose node_modules, tsconfig or
+  // go.mod would tell a server what it is looking at, so it gets nothing
+  // rather than a server rooted somewhere arbitrary.
+  const canUseLsp = !isUntitled && !isExternalFile && inlineContent == null && !!filePath && !!projectName;
+  const lsp = useLsp({
+    editor: mounted?.editor ?? null,
+    monaco: mounted?.monaco ?? null,
+    projectName,
+    filePath: canUseLsp ? filePath : undefined,
+    enabled: canUseLsp,
+  });
+
+  const lspNeedsAttention =
+    lsp.status?.state === "unavailable" || lsp.diagnostics.some((d) => d.severity === 1);
+
   const saveFile = useCallback(
     async (text: string) => {
       if (!filePath) return;
@@ -402,9 +423,12 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
         // The blame line table is keyed by line number, so an edit invalidates
         // it; a save is the point where a fresh one can be had.
         blame.refresh();
+        // Servers that only re-analyse on save (gopls by default, several
+        // linters) would otherwise keep reporting the previous contents.
+        if (canUseLsp && projectName && filePath) notifyLspSave(projectName, filePath, text);
       } catch { /* Silent — unsaved indicator persists */ }
     },
-    [filePath, projectName, isExternalFile, blame.refresh], // eslint-disable-line react-hooks/exhaustive-deps
+    [filePath, projectName, isExternalFile, canUseLsp, blame.refresh], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   function handleChange(value: string | undefined) {
@@ -495,6 +519,18 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
       monaco.KeyMod.Alt | monaco.KeyCode.KeyB,
       () => useSettingsStore.getState().toggleInlineBlame(),
     );
+    // F12. Monaco's own binding would swap another file's model into this
+    // editor, leaving the tab titled and dirty-tracked as the old file.
+    registerLspNavigation(monaco, editor, {
+      openFileTab: (path, project, line) =>
+        useTabStore.getState().openTab({
+          type: "editor",
+          title: path.split("/").pop() || path,
+          projectId: project,
+          metadata: { filePath: path, projectName: project, lineNumber: line },
+          closable: true,
+        }),
+    });
     monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: true, noSyntaxValidation: true, noSuggestionDiagnostics: true,
     });
@@ -704,6 +740,14 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
           </button>
         </div>
       )}
+      {/* Mobile: the language server only earns a row when something is wrong.
+          A chip saying "working" is not worth a row of a phone screen, but a
+          silent missing server is exactly the failure this has to surface. */}
+      {lspNeedsAttention && (
+        <div className="flex md:hidden items-center border-b border-border bg-background shrink-0 px-2">
+          <LspStatus status={lsp.status} diagnostics={lsp.diagnostics} />
+        </div>
+      )}
       {/* Breadcrumb + Toolbar bar — desktop only */}
       {filePath && projectName && tabId && (
         <div className="hidden md:flex items-center h-7 border-b border-border bg-background shrink-0">
@@ -713,6 +757,7 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
             tabId={tabId}
             className="flex items-center flex-1 min-w-0 overflow-x-auto scrollbar-none px-2 gap-0.5"
           />
+          <LspStatus status={lsp.status} diagnostics={lsp.diagnostics} />
           <EditorLanguagePicker value={effectiveLanguage} onChange={handleLanguageChange} />
           {sqlPickerBar}
           <EditorToolbar
@@ -774,6 +819,22 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
               folding: true,
               bracketPairColorization: { enabled: true },
               readOnly: inlineContent != null,
+
+              // VS Code's defaults for the things a language server drives.
+              // Monaco ships several of these off, which makes real
+              // intelligence look absent even once a server is answering.
+              quickSuggestions: { other: true, comments: false, strings: false },
+              suggestOnTriggerCharacters: true,
+              acceptSuggestionOnEnter: "on",
+              suggestSelection: "first",
+              parameterHints: { enabled: true },
+              inlayHints: { enabled: "on" },
+              // Sticky scroll costs a row of vertical space, which is free on a
+              // desktop and expensive on a phone.
+              stickyScroll: { enabled: !isMobile },
+              // The peek and references widgets are how a cross-file result is
+              // read; the default height shows barely two lines.
+              peekWidgetDefaultFocus: "editor",
             }}
             loading={<Loader2 className="size-5 animate-spin text-text-subtle" />}
           />
