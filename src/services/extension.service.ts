@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
 import { existsSync } from "node:fs";
 import type { ExtensionManifest, ExtensionInfo, RpcMessage } from "../types/extension.ts";
 import { getExtensions, getExtensionById, insertExtension, updateExtension, deleteExtension, deleteExtensionStorage, getExtensionStorage, setExtensionStorageValue } from "./db.service.ts";
@@ -8,6 +8,26 @@ import { parseManifest, discoverManifests, discoverBundledManifests } from "./ex
 import { installExtension, removeExtension, devLinkExtension, ensureExtensionsDir } from "./extension-installer.ts";
 import { registerVscodeCompatHandlers } from "./extension-rpc-handlers.ts";
 import { getPpmDir } from "./ppm-dir.ts";
+
+/**
+ * Where the bundled `packages/ext-*` extensions live on disk.
+ *
+ * They are loaded as source by the extension host, so they ship *beside* the install rather
+ * than inside it. Walking up from `import.meta.dir` finds them when PPM runs from source, but
+ * a compiled binary reports `/$bunfs/root` — its embedded filesystem — and the same walk lands
+ * on `/packages`, an absolute path at the filesystem root that cannot exist. Every bundled
+ * extension then vanished with no error and no log line: the panel simply said none were
+ * installed. Fall back to the directory holding the executable (`<install>/dist/ppm` →
+ * `<install>/packages`).
+ */
+export function bundledExtensionsDir(
+  moduleDir: string = import.meta.dir,
+  execPath: string = process.execPath,
+): string {
+  const fromSource = resolve(moduleDir, "../../packages");
+  if (existsSync(fromSource)) return fromSource;
+  return resolve(dirname(execPath), "../packages");
+}
 
 class ExtensionService {
   private worker: Worker | null = null;
@@ -73,8 +93,7 @@ class ExtensionService {
     ensureExtensionsDir(resolve(getPpmDir(), "extensions"));
 
     // Discover bundled extensions from packages/ext-*
-    const bundledDir = resolve(import.meta.dir, "../../packages");
-    const bundled = await discoverBundledManifests(bundledDir);
+    const bundled = await discoverBundledManifests(bundledExtensionsDir());
     for (const m of bundled) {
       this.extensionPaths.set(m.id, m._dir);
       this.bundledIds.add(m.id);
