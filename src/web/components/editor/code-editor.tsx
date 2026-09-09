@@ -12,7 +12,8 @@ import { useInlineBlame } from "@/hooks/use-inline-blame";
 import { useLsp, notifyLspSave } from "@/hooks/use-lsp";
 import { registerLspNavigation } from "@/lib/lsp/lsp-navigation";
 import { LspStatus } from "./lsp-status";
-import { Loader2, FileWarning, Play, Database, ExternalLink, X, GripHorizontal, ShieldCheck, ShieldOff } from "lucide-react";
+import { useOpenProblems } from "@/components/problems/problems-status";
+import { Loader2, FileWarning, Play, Database, ExternalLink, X, GripHorizontal, ShieldCheck, ShieldOff, ListTree } from "lucide-react";
 import { EditorBreadcrumb } from "./editor-breadcrumb";
 import { EditorToolbar } from "./editor-toolbar";
 import { EditorLanguagePicker } from "./editor-language-picker";
@@ -406,8 +407,13 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
     enabled: canUseLsp,
   });
 
+  // Warnings count as well as errors: this row carries the only way to reach
+  // the Problems list on a phone, and hiding it on a file that has warnings
+  // would put a non-empty list behind no affordance at all.
   const lspNeedsAttention =
-    lsp.status?.state === "unavailable" || lsp.diagnostics.some((d) => d.severity === 1);
+    lsp.status?.state === "unavailable" ||
+    lsp.diagnostics.some((d) => d.severity === 1 || d.severity === 2);
+  const openProblems = useOpenProblems();
 
   const saveFile = useCallback(
     async (text: string) => {
@@ -744,8 +750,18 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
           A chip saying "working" is not worth a row of a phone screen, but a
           silent missing server is exactly the failure this has to surface. */}
       {lspNeedsAttention && (
-        <div className="flex md:hidden items-center border-b border-border bg-background shrink-0 px-2">
+        <div className="flex md:hidden items-center gap-1 border-b border-border bg-background shrink-0 px-2">
           <LspStatus status={lsp.status} diagnostics={lsp.diagnostics} />
+          {/* The status bar is desktop-only, so this row is the only way to
+              reach the Problems list on a phone. */}
+          <button
+            type="button"
+            onClick={openProblems}
+            className="ml-auto flex items-center gap-1 rounded px-1.5 min-h-11 text-xs text-muted-foreground hover:bg-muted active:scale-95 transition-colors"
+          >
+            <ListTree className="size-3 shrink-0" />
+            Problems
+          </button>
         </div>
       )}
       {/* Breadcrumb + Toolbar bar — desktop only */}

@@ -19,6 +19,7 @@ import {
   Columns2,
   Cloud,
   AppWindow,
+  CircleX,
 } from "lucide-react";
 import { openExplorer } from "@/components/os-explorer/open-explorer";
 import { openSettings } from "@/components/settings/open-settings";
@@ -29,6 +30,7 @@ import { useKeybindingsStore } from "@/stores/keybindings-store";
 import { useFileStore, type FileNode } from "@/stores/file-store";
 import { useExtensionStore } from "@/stores/extension-store";
 import { useCompareStore } from "@/stores/compare-store";
+import { usePanelStore } from "@/stores/panel-store";
 import { api } from "@/lib/api-client";
 import { basename } from "@/lib/utils";
 import { scoreFileSearchFast, compareScores, getFilename, type FileSearchScore } from "@/lib/score-file-search";
@@ -201,6 +203,7 @@ export function CommandPalette({ open, onClose, initialQuery = "" }: { open: boo
       { id: "postgres", label: "PostgreSQL", icon: Database, action: openNewTab("postgres", "PostgreSQL"), keywords: "database pg sql query", group: "action" },
       { id: "voice-input", label: "Voice Input", icon: Mic, action: () => { window.dispatchEvent(new CustomEvent("toggle-voice-input")); onClose(); }, keywords: "speech microphone dictate voice", group: "action", shortcut: formatShortcut(getBinding("voice-input")) },
       { id: "git-status", label: "Git Status", icon: GitCommitHorizontal, action: () => { setSidebarActiveTab("git"); onClose(); }, keywords: "changes diff staged", group: "action", shortcut: formatShortcut(getBinding("open-git-status")) },
+      { id: "problems", label: "Problems", icon: CircleX, action: () => { usePanelStore.getState().openInDock({ type: "problems", title: "Problems", projectId: null, closable: true }); onClose(); }, keywords: "errors warnings diagnostics lint typescript", group: "action", shortcut: formatShortcut(getBinding("open-problems")) },
       {
         id: "compare-files",
         label: "Compare Files...",

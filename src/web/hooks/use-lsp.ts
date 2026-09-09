@@ -23,6 +23,7 @@ import {
 import { registerLspDocument, unregisterLspDocument } from "@/lib/lsp/lsp-documents";
 import { registerLspProviders } from "@/lib/lsp/register-providers";
 import { fromLspRange, markerSeverity } from "@/lib/lsp/lsp-monaco";
+import { useProblemsStore } from "@/stores/problems-store";
 
 export interface UseLspOptions {
   editor: MonacoType.editor.IStandaloneCodeEditor | null;
@@ -97,6 +98,10 @@ export function useLsp({ editor, monaco, projectName, filePath, enabled }: UseLs
 
       const list = payload.diagnostics ?? [];
       setDiagnostics(list);
+      // Also to the shared store, which is what the Problems panel reads. The
+      // markers below only draw on this model, so they can say what is wrong
+      // with *this* file and nothing more.
+      useProblemsStore.getState().publish(projectName, filePath, list);
       monaco.editor.setModelMarkers(
         model,
         MARKER_OWNER,
@@ -138,6 +143,7 @@ export function useLsp({ editor, monaco, projectName, filePath, enabled }: UseLs
       offNotification();
       // Clear our markers so a closed file's errors do not outlive it.
       monaco.editor.setModelMarkers(model, MARKER_OWNER, []);
+      useProblemsStore.getState().clear(projectName, filePath);
       unregisterLspDocument(model);
       connection.close(filePath);
       releaseLspConnection(projectName);
