@@ -11,6 +11,7 @@ import { useMonacoTheme } from "@/lib/use-monaco-theme";
 import { useInlineBlame } from "@/hooks/use-inline-blame";
 import { useLsp, notifyLspSave } from "@/hooks/use-lsp";
 import { registerLspNavigation } from "@/lib/lsp/lsp-navigation";
+import { disableBuiltinTypeScript } from "@/lib/lsp/monaco-builtin-typescript";
 import { LspStatus } from "./lsp-status";
 import { useOpenProblems } from "@/components/problems/problems-status";
 import { Loader2, FileWarning, Play, Database, ExternalLink, X, GripHorizontal, ShieldCheck, ShieldOff, ListTree } from "lucide-react";
@@ -537,12 +538,12 @@ export const CodeEditor = memo(function CodeEditor({ metadata, tabId }: CodeEdit
           closable: true,
         }),
     });
-    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: true, noSyntaxValidation: true, noSuggestionDiagnostics: true,
-    });
-    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: true, noSyntaxValidation: true, noSuggestionDiagnostics: true,
-    });
+    // Monaco's own TypeScript worker is not a fallback beside a real server —
+    // it is a slower, single-file second answer. See the module for why.
+    disableBuiltinTypeScript(
+      monaco.languages.typescript.typescriptDefaults,
+      monaco.languages.typescript.javascriptDefaults,
+    );
     // Register SQL completion if schema available
     if (sqlSchemaInfo) {
       completionDisposable.current?.dispose();
