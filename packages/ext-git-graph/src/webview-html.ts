@@ -3,6 +3,7 @@
  * All JS + CSS is inlined since webview runs in an iframe sandbox.
  */
 import { AVATAR_JS } from "./webview-shell.ts";
+import { COMMIT_MESSAGE_JS } from "./commit-message-html.ts";
 
 export function getWebviewHtml(): string {
   return `<!DOCTYPE html>
@@ -83,6 +84,7 @@ ${getStyles()}
     <div id="search-results" class="search-results hidden"></div>
     <div id="graph-container">
       <div id="graph-header" class="commit-row header-row">
+        <div class="col-refs">Branch / Tag</div>
         <div class="col-graph">Graph<div class="graph-resize-handle" id="graph-resize-handle"></div></div>
         <div class="col-message">Message</div>
         <div class="col-author">Author</div>
@@ -169,6 +171,9 @@ function getStyles(): string {
   --border: #e4e4e7; --border2: #d4d4d8; --blue: #3b82f6; --red: #ef4444; --green: #22c55e;
   --yellow: #eab308; --purple: #8b5cf6; --orange: #f97316;
   --surface-hover: #f4f4f5; --selected: #eff6ff;
+  /* Width of the branch/tag column. Fixed, because the graph is one SVG overlay
+     drawn on a single grid and it starts where this column ends. */
+  --refs-col-w: 170px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -270,10 +275,17 @@ button:active { background: var(--surface); }
 
 /* Graph container */
 #graph-container { flex: 1; overflow-y: auto; overflow-x: hidden; }
-.commit-row { display: flex; align-items: center; cursor: pointer; height: 24px; padding: 0 6px; font-size: 12px; box-sizing: border-box; overflow: hidden; }
+.commit-row { display: flex; align-items: center; cursor: pointer; height: 30px; padding: 0 6px; font-size: 12px; box-sizing: border-box; overflow: hidden; }
+/* Banding, before the hover and selected rules on purpose: it has the same
+   specificity as they do, so source order is what decides the winner. Do not
+   qualify it with #commit-list — an id would raise it above both of them and
+   every other row would stop showing hover and selection. The header row is a
+   .commit-row too but is the first child of its own parent, so it is odd. */
+.commit-row:nth-child(even) { background: color-mix(in srgb, var(--text) 3.5%, transparent); }
 .commit-row:hover { background: var(--surface-hover); }
-.commit-row.selected { background: var(--selected); }
-.commit-row.header-row { background: var(--surface); cursor: default; font-weight: 600; font-size: 10px; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--border); min-height: 22px; }
+.commit-row.selected { background: var(--selected); box-shadow: inset 2px 0 0 var(--blue); }
+.commit-row.header-row { background: var(--surface); cursor: default; font-weight: 600; font-size: 10px; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--border); height: 24px; }
+.commit-row.header-row .col-message::before { display: none; }
 .commit-row.search-match { background: rgba(234, 179, 8, 0.15); }
 .commit-row.virtual { opacity: 0.85; font-style: italic; }
 .commit-row.virtual .col-message { color: var(--subtext); }
@@ -281,12 +293,25 @@ button:active { background: var(--surface); }
 .commit-row.stash-row .col-message { color: var(--subtext); font-style: italic; }
 .file-clickable { cursor: pointer; border-radius: 3px; padding: 2px 4px; margin: 0 -4px; }
 .file-clickable:hover { background: var(--surface-hover); }
+/* Refs get a column of their own so every message starts at the same x — a
+   branch badge pushing the text right was most of why the list read as ragged.
+   The width has to be fixed rather than content-sized: rows are separate flex
+   containers, so an auto width would put each row's graph at a different x, and
+   the graph is one SVG overlay drawn on a single grid. */
+.col-refs { width: var(--refs-col-w, 170px); min-width: var(--refs-col-w, 170px); flex-shrink: 0; overflow: hidden; white-space: nowrap; display: flex; align-items: center; justify-content: flex-end; gap: 3px; padding-right: 6px; }
+.col-refs .ref-badge { min-width: 0; overflow: hidden; text-overflow: ellipsis; margin-right: 0; }
 .col-graph { width: var(--graph-col-w, 120px); min-width: var(--graph-col-w, 80px); overflow: hidden; flex-shrink: 0; position: relative; }
 .graph-resize-handle { position: absolute; right: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 3; background: transparent; }
 .graph-resize-handle:hover, .graph-resize-handle.dragging { background: var(--blue); opacity: 0.5; }
-.col-message { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 6px; }
-.col-author { width: 100px; min-width: 100px; overflow: hidden; white-space: nowrap; color: var(--subtext); font-size: 11px; display: flex; align-items: center; gap: 4px; }
-.col-author .author-name { overflow: hidden; text-overflow: ellipsis; }
+.col-message { flex: 1; min-width: 0; padding: 0 6px 0 12px; position: relative; display: flex; flex-direction: column; justify-content: center; align-self: stretch; overflow: hidden; }
+/* The lane's colour, restated where the eye reads the message. The row centres
+   its cells, so this one has to stretch or the tick has nothing to span. */
+.col-message::before { content: ''; position: absolute; left: 3px; top: 7px; bottom: 7px; width: 2px; border-radius: 1px; background: var(--lane, transparent); opacity: 0.65; }
+.msg-subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Author, date and hash again, for the phone layout that has no room for their
+   columns. Hidden until that layout asks for it. */
+.msg-meta { display: none; }
+.col-author { width: 130px; min-width: 130px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--subtext); font-size: 11px; }
 .avatar { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 700; color: #fff; flex-shrink: 0; letter-spacing: -0.2px; }
 
 /* Author hover card */
@@ -323,10 +348,13 @@ button:active { background: var(--surface); }
 
 /* SVG graph — single SVG overlay */
 #commit-list-wrapper { position: relative; }
-#graph-svg-container { position: absolute; top: 0; left: 8px; z-index: 1; pointer-events: none; }
+#graph-svg-container { position: absolute; top: 0; left: calc(var(--refs-col-w, 170px) + 8px); z-index: 1; pointer-events: none; }
 #graph-svg-container circle { pointer-events: auto; cursor: pointer; }
 #graph-svg-container .line { stroke-width: 2; fill: none; }
-#graph-svg-container .graphCurrent { fill: var(--bg); stroke-width: 2; }
+/* The checked-out commit wears a thicker ring rather than a different shape,
+   so it still reads as the same kind of thing as every row above it. */
+#graph-svg-container .graphCurrent { stroke-width: 3.5; }
+#graph-svg-container .node-initials { font-size: 8px; font-weight: 700; fill: #fff; pointer-events: none; user-select: none; letter-spacing: -0.3px; }
 .commit-row.graph-hover { background: var(--surface-hover); }
 
 /* Detail panel */
@@ -447,15 +475,29 @@ button:active { background: var(--surface); }
   #graph-container { order: 1; overflow-x: auto; overflow-y: auto; }
   #find-bar { order: 0; }
   #status-bar { order: 9; }
-  #commit-list-wrapper { min-width: 700px; }
-  #graph-header { min-width: 700px; }
+  /* Enough for every column including the branch one, so a tablet scrolls the
+     table sideways rather than crushing it. */
+  #commit-list-wrapper { min-width: 880px; }
+  #graph-header { min-width: 880px; }
   .commit-row.header-row { min-height: 20px; }
   .detail-panel { order: 8; max-height: 35vh; }
 }
-/* Column hiding on very narrow non-touch containers (e.g. narrow desktop panel) */
-@media (max-width: 500px) and (pointer: fine) {
-  .col-author, .col-hash { display: none; }
-  .col-date { width: 60px; min-width: 60px; }
+/* Phone layout: the graph and the message, with author/date/hash under the
+   subject. Six columns of fragments is not a list of commits, and 44px is the
+   minimum touch target this row has to be anyway. isNarrowLayout() in the
+   script uses this same 640px, because it decides where the ref badges go. */
+@media (max-width: 640px) {
+  :root { --refs-col-w: 0px; }
+  /* The coarse-pointer rules above keep the whole table and scroll it
+     sideways, which is right for a tablet. A phone gets the stacked row
+     instead, so the minimum width that forces that scroll has to go. */
+  #commit-list-wrapper, #graph-header { min-width: 0; }
+  .commit-row { height: 44px; }
+  .commit-row.header-row { height: 24px; }
+  .col-refs, .col-author, .col-date, .col-hash { display: none; }
+  .col-message { gap: 1px; }
+  .msg-meta { display: block; font-size: 10px; color: var(--subtext); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-message .ref-badge { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 }
 `;
 }
@@ -468,7 +510,10 @@ const NULL_VERTEX_ID = -1;
 const GRAPH_COLORS = ['#4ec9b0','#569cd6','#c586c0','#ce9178','#dcdcaa','#4fc1ff','#d7ba7d','#9cdcfe','#b5cea8','#d16969'];
 const graphConfig = {
   colours: GRAPH_COLORS,
-  grid: { x: 16, y: 24, offsetX: 8, offsetY: 12, expandY: 60 },
+  // Wide enough apart that two adjacent lanes' author avatars do not touch,
+  // and tall enough that an 18px avatar is the row rather than a dot in it.
+  grid: { x: 22, y: 30, offsetX: 14, offsetY: 15, expandY: 60 },
+  nodeR: 9,
   style: 'rounded'
 };
 
@@ -549,6 +594,20 @@ document.getElementById('btn-stash').innerHTML = ICONS.archive + ' <span class="
 vscode.postMessage({ command: 'ready' });
 
 // --- Message handler ---
+/*
+ * The row's layout is decided in JS as well as in CSS (the ref badges live in
+ * their own column on a wide screen and inline on a narrow one), so crossing
+ * the breakpoint has to rebuild the rows. Without this, rotating a phone would
+ * leave the badges in a column that CSS has just hidden.
+ */
+let gWasNarrow = null;
+window.addEventListener('resize', () => {
+  const narrow = isNarrowLayout();
+  if (gWasNarrow === narrow) return;
+  gWasNarrow = narrow;
+  if (state.commits.length > 0) renderCommitList();
+});
+
 window.addEventListener('message', (event) => {
   const msg = event.data;
   switch (msg.command) {
@@ -1387,9 +1446,11 @@ class GBranch {
 }
 
 class GVertex {
-  constructor(id, isStash) {
+  constructor(id, isStash, author) {
     this.id = id;
     this.isStash = isStash;
+    /** {name, email} of the commit's author, or null for a row that has none. */
+    this._author = author || null;
     this._x = 0;
     this._children = [];
     this._parents = [];
@@ -1432,6 +1493,16 @@ class GVertex {
   setNotCommitted() { this._isCommitted = false; }
   setCurrent() { this._isCurrent = true; }
 
+  /*
+   * The node is the author's avatar, ringed in the lane's colour — which is
+   * what makes a graph readable as *who* rather than as a column of identical
+   * dots. Initials, never a fetched image: an avatar service would mean handing
+   * every committer's email address to a third party, which a self-hosted tool
+   * must not do quietly.
+   *
+   * Rows with no author — uncommitted changes, a stash — keep a plain dot,
+   * because inventing initials for them would be a lie.
+   */
   draw(svg, config, expandOffset, overListener, outListener) {
     if (this._onBranch === null) return;
     const STASH_COLOR = '#808080';
@@ -1439,19 +1510,31 @@ class GVertex {
       : this._isCommitted ? config.colours[this._onBranch.getColour() % config.colours.length] : '#808080';
     const cx = (this._x * config.grid.x + config.grid.offsetX).toString();
     const cy = (this.id * config.grid.y + config.grid.offsetY + (expandOffset ? config.grid.expandY : 0)).toString();
+    const named = this._isCommitted && !this.isStash && !!this._author && !!this._author.name;
+    const r = named ? (config.nodeR || 9) : 4.5;
 
     const circle = document.createElementNS(SVG_NS, 'circle');
     circle.dataset.id = this.id.toString();
+    circle.dataset.r = r.toString();
     circle.setAttribute('cx', cx);
     circle.setAttribute('cy', cy);
-    circle.setAttribute('r', '4');
-    if (this._isCurrent) {
-      circle.setAttribute('class', 'graphCurrent');
-      circle.setAttribute('stroke', colour);
-    } else {
-      circle.setAttribute('fill', colour);
-    }
+    circle.setAttribute('r', r.toString());
+    circle.setAttribute('stroke', colour);
+    circle.setAttribute('stroke-width', named ? '2' : '0');
+    circle.setAttribute('fill', named ? authorColor(this._author.email || this._author.name) : colour);
+    if (this._isCurrent) circle.setAttribute('class', 'graphCurrent');
     svg.appendChild(circle);
+
+    if (named) {
+      const label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('class', 'node-initials');
+      label.setAttribute('x', cx);
+      label.setAttribute('y', cy);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('dominant-baseline', 'central');
+      label.textContent = authorInitials(this._author.name);
+      svg.appendChild(label);
+    }
 
     circle.addEventListener('mouseover', overListener);
     circle.addEventListener('mouseout', outListener);
@@ -1469,7 +1552,7 @@ function graphLoadCommits(commits) {
   const lookup = {};
   for (let i = 0; i < commits.length; i++) {
     lookup[commits[i].hash] = i;
-    gVertices.push(new GVertex(i, !!commits[i]._isStash));
+    gVertices.push(new GVertex(i, !!commits[i]._isStash, { name: commits[i].author, email: commits[i].authorEmail }));
   }
   gCommitLookup = lookup;
 
@@ -1593,7 +1676,7 @@ function graphVertexOver(e) {
   if (id >= 0 && id < gVertices.length) {
     const rows = document.querySelectorAll('.commit-row:not(.header-row)');
     if (rows[id]) rows[id].classList.add('graph-hover');
-    e.target.setAttribute('r', '5');
+    e.target.setAttribute('r', (Number(e.target.dataset.r || 4.5) + 1.5).toString());
   }
 }
 function graphVertexOut(e) {
@@ -1602,7 +1685,7 @@ function graphVertexOut(e) {
   if (id >= 0) {
     const rows = document.querySelectorAll('.commit-row:not(.header-row)');
     if (rows[id]) rows[id].classList.remove('graph-hover');
-    e.target.setAttribute('r', '4');
+    e.target.setAttribute('r', (e.target.dataset.r || '4.5'));
   }
 }
 
@@ -1663,6 +1746,18 @@ function getDisplayCommits() {
   return commits;
 }
 
+/*
+ * Below this width the row carries the graph and the message only, with the
+ * author, date and hash on a second line under the subject: six columns of
+ * fragments on a phone is not a list of commits, and PPM's layout rules ask for
+ * one column there. The value matches the max-width:640px block in the CSS —
+ * both have to agree, because the JS decides where the ref badges are put and
+ * the CSS decides which columns exist.
+ */
+function isNarrowLayout() {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 640px)').matches;
+}
+
 function renderCommitList() {
   const container = document.getElementById('commit-list');
   container.innerHTML = '';
@@ -1682,11 +1777,17 @@ function renderCommitList() {
     row.className = 'commit-row' + (isVirtual ? ' virtual' : '') + (isStash ? ' stash-row' : '');
     row.dataset.hash = commit.hash;
 
+    // Branch / tag column. Below 640px there is no room for it, so the badges
+    // go inline ahead of the subject instead — one home or the other, never
+    // both, or the second copy's context menu would act on a hidden badge.
+    const narrow = isNarrowLayout();
+    const refsCol = document.createElement('div');
+    refsCol.className = 'col-refs';
+
     // Graph spacer column (SVG overlays this area)
     const graphCol = document.createElement('div');
     graphCol.className = 'col-graph';
 
-    // Message column with ref badges
     const msgCol = document.createElement('div');
     msgCol.className = 'col-message';
     let badges = '';
@@ -1721,10 +1822,23 @@ function renderCommitList() {
         badges += '<span class="ref-badge ref-' + ref.type + '" data-ref="' + escHtml(ref.name) + '">' + syncIcon + escHtml(ref.name) + '</span>';
       });
     }
-    msgCol.innerHTML = badges + formatCommitMessage(commit.message);
+    if (!narrow) refsCol.innerHTML = badges;
+    const meta = isVirtual || isStash ? ''
+      : '<span class="msg-meta">' + escHtml(commit.author) + ' \u00b7 '
+        + escHtml(formatDate(commit.commitDate)) + ' \u00b7 ' + escHtml(commit.hash.substring(0, 7))
+        + '</span>';
+    msgCol.innerHTML = '<span class="msg-subject">' + (narrow ? badges : '')
+      + formatCommitMessage(commit.message) + '</span>' + meta;
+
+    // The lane's colour, for the tick at the start of the message.
+    const vertex = gVertices[idx];
+    if (vertex && !isVirtual && !isStash) {
+      row.style.setProperty('--lane', GRAPH_COLORS[vertex.getColour() % GRAPH_COLORS.length]);
+    }
 
     // Attach context menu and double-click to ref badges
-    msgCol.querySelectorAll('.ref-badge').forEach(badge => {
+    row.appendChild(refsCol);
+    row.querySelectorAll('.ref-badge').forEach(badge => {
       const refName = badge.dataset.ref || badge.textContent.trim();
       const refType = badge.className.includes('ref-head') ? 'head'
                     : badge.className.includes('ref-remote') ? 'remote'
@@ -1756,8 +1870,9 @@ function renderCommitList() {
     if (isVirtual || isStash) {
       authorCol.textContent = '';
     } else {
-      authorCol.innerHTML = avatarHtml(commit.author, commit.authorEmail)
-        + '<span class="author-name">' + escHtml(commit.author) + '</span>';
+      // No avatar here any more — it is the graph node now, and twice on one
+      // row was noise.
+      authorCol.textContent = commit.author;
       authorCol.addEventListener('mouseenter', () => showAuthorCard(authorCol, commit));
       authorCol.addEventListener('mouseleave', hideAuthorCard);
     }
@@ -1765,6 +1880,9 @@ function renderCommitList() {
     const dateCol = document.createElement('div');
     dateCol.className = 'col-date';
     dateCol.textContent = isVirtual ? 'now' : isStash ? '' : formatDate(commit.commitDate);
+    // The column is relative by default, so the exact moment goes in the title
+    // rather than in a wider column.
+    if (!isVirtual && !isStash) dateCol.title = new Date(commit.commitDate * 1000).toLocaleString();
 
     const hashCol = document.createElement('div');
     hashCol.className = 'col-hash';
@@ -2390,37 +2508,7 @@ function setupLongPress(el, callback) {
 }
 
 // --- Text formatter (URLs, issues, commit hashes) ---
-function formatCommitMessage(msg) {
-  let safe = escHtml(msg);
-  // Apply issue linking rules from settings
-  const rules = state.settings.issueLinkingRules || [];
-  for (const rule of rules) {
-    if (!rule.pattern) continue;
-    if (rule.pattern.length > 200) continue; // ReDoS guard
-    try {
-      const re = new RegExp(rule.pattern, 'g');
-      if (rule.url) {
-        safe = safe.replace(re, function(match) {
-          let href = rule.url;
-          for (let i = 1; i < arguments.length - 2; i++) {
-            if (typeof arguments[i] === 'string') href = href.split('$' + i).join(arguments[i]);
-          }
-          return '<a class="commit-link" href="' + escHtml(href) + '" target="_blank" title="' + escHtml(href) + '">' + match + '</a>';
-        });
-      } else {
-        safe = safe.replace(re, '<span class="commit-link" title="$&">$&</span>');
-      }
-    } catch (e) { /* invalid regex — skip */ }
-  }
-  // Short commit hashes
-  safe = safe.replace(/\\b([0-9a-f]{7,40})\\b/g, '<span class="commit-link" title="$1">$1</span>');
-  // URLs — skip if already inside an <a> tag
-  safe = safe.replace(/(<a[^>]*>.*?<\\/a>)|(https?:\\/\\/[^\\s<]+)/g, (m, linked, url) => {
-    if (linked) return linked;
-    return '<a class="commit-link" href="' + url + '" target="_blank">' + url + '</a>';
-  });
-  return safe;
-}
+${COMMIT_MESSAGE_JS}
 
 // --- Find widget ---
 const findBar = document.getElementById('find-bar');

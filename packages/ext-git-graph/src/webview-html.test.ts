@@ -140,3 +140,71 @@ describe("webview-html: getWebviewHtml", () => {
     expect(html).toContain('charset="utf-8"');
   });
 });
+
+describe("webview-html: the injected script", () => {
+  /** Everything between the last <script> and its close — the panel's whole runtime. */
+  function scriptSource(): string {
+    const html = getWebviewHtml();
+    const open = html.lastIndexOf("<script>");
+    const close = html.lastIndexOf("</script>");
+    expect(open).toBeGreaterThan(-1);
+    expect(close).toBeGreaterThan(open);
+    return html.slice(open + "<script>".length, close);
+  }
+
+  it("parses as JavaScript", () => {
+    // The script is a template literal, so nothing type-checks it and a stray
+    // brace or backtick ships as a blank panel with one console error. `new
+    // Function` parses without running, which is exactly the check wanted.
+    expect(() => new Function(scriptSource())).not.toThrow();
+  });
+
+  it("renders the commit node as an initials avatar, never a fetched one", () => {
+    const source = scriptSource();
+    expect(source).toContain("authorInitials(this._author.name)");
+    expect(source).toContain("authorColor(this._author.email || this._author.name)");
+    expect(source).not.toContain("gravatar");
+  });
+
+  it("agrees with the CSS about where the narrow layout starts", () => {
+    const html = getWebviewHtml();
+    // The script decides where ref badges go and the CSS decides which columns
+    // exist; a mismatch hides the badges at some widths.
+    expect(html).toContain("window.matchMedia('(max-width: 640px)')");
+    expect(html).toContain("@media (max-width: 640px)");
+  });
+
+  it("offsets the graph overlay by the branch column's width", () => {
+    // The SVG is one absolutely-positioned overlay: if its left edge does not
+    // track the column in front of it, every node is drawn off its row's dot.
+    expect(getWebviewHtml()).toContain("left: calc(var(--refs-col-w, 170px) + 8px)");
+  });
+});
+
+describe("webview-html: row states", () => {
+  const css = getWebviewHtml();
+
+  it("does not qualify the banding rule with an id", () => {
+    // `#commit-list .commit-row:nth-child(even)` outranks `.commit-row:hover`
+    // and `.commit-row.selected`, so every other row silently stops responding
+    // to the pointer and to selection. Same specificity, earlier in the file,
+    // is what makes the three coexist.
+    expect(css).toContain(".commit-row:nth-child(even) {");
+    expect(css).not.toContain("#commit-list .commit-row:nth-child(even)");
+  });
+
+  it("declares banding before hover and selection", () => {
+    const banding = css.indexOf(".commit-row:nth-child(even) {");
+    const hover = css.indexOf(".commit-row:hover {");
+    const selected = css.indexOf(".commit-row.selected {");
+    expect(banding).toBeGreaterThan(-1);
+    expect(banding).toBeLessThan(hover);
+    expect(banding).toBeLessThan(selected);
+  });
+
+  it("puts the phone layout after the coarse-pointer rules it has to beat", () => {
+    // The coarse block keeps all six columns and scrolls them sideways, which
+    // is right for a tablet and wrong for a phone.
+    expect(css.indexOf("@media (pointer: coarse)")).toBeLessThan(css.indexOf("@media (max-width: 640px)"));
+  });
+});
