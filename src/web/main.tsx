@@ -16,6 +16,9 @@ import "@fontsource/monaspace-argon/latin-400-italic.css";
 import "@fontsource/monaspace-argon/latin-700.css";
 import "@fontsource/monaspace-krypton/latin-400.css";
 import "@fontsource/monaspace-krypton/latin-400-italic.css";
+// The terminal's icon glyphs, split per Nerd Fonts block so a powerline prompt
+// costs 7 KiB and only someone drawing a Material Design icon pays for those.
+import "./styles/nerd-font.generated.css";
 import "./styles/globals.css";
 import "katex/dist/katex.min.css";
 
