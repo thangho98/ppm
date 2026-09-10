@@ -14,6 +14,8 @@ export const EDITOR_LANGUAGES: { id: string; label: string }[] = [
   { id: "markdown", label: "Markdown" },
   { id: "yaml", label: "YAML" },
   { id: "shell", label: "Shell" },
+  // Not one of Monaco's own — see `src/web/lib/monaco-dotenv-language.ts`.
+  { id: "dotenv", label: "Dotenv" },
 ];
 
 interface Props {
