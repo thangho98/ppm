@@ -315,3 +315,62 @@ describe("getWebviewHtml theme source", () => {
     expect(css).toContain(':root[data-ppm-theme="dark"] .ref-badge');
   });
 });
+
+describe("getWebviewHtml commit details", () => {
+  const html = getWebviewHtml();
+  const css = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));
+  const render = html.slice(html.indexOf("function renderDetailPanel"), html.indexOf("// --- Context menu ---"));
+  const uncommitted = html.slice(
+    html.indexOf("function renderUncommittedDetail"), html.indexOf("function wireCommitControls"),
+  );
+
+  it("no longer prints the commit as four labelled fields", () => {
+    // "Hash:" with all forty characters, "Author:" with the email beside the
+    // name, and a timestamp that answers which afternoon rather than how long
+    // ago — a line each, and a debug dump to read.
+    expect(html).not.toContain("detail-field");
+    expect(render).not.toContain("Commit Details");
+  });
+
+  it("puts the file list beside the message when there is room", () => {
+    // The message is hard-wrapped by whoever wrote it, so on a wide panel it
+    // fills half the width and the rest of the row is empty.
+    expect(css).toMatch(/@media \(min-width: 900px\) \{\s*\.detail-grid\.has-files/);
+  });
+
+  it("only splits the columns when there is a file list to put in one", () => {
+    // Otherwise the message would sit in a 62% column with nothing beside it.
+    expect(render).toContain("(right ? ' has-files' : '')");
+  });
+
+  it("leaves the panel unpadded and pads each view instead", () => {
+    // The header is a full-width sticky bar, so the padding cannot live on the
+    // scroller — which means every other thing written into the panel has to
+    // bring its own.
+    const panelRule = css.slice(css.indexOf(".detail-panel {"), css.indexOf(".detail-panel h3"));
+    expect(panelRule).not.toContain("padding");
+    expect(css).toContain(".detail-pad { padding:");
+    expect(uncommitted).toContain('detail-pad');
+  });
+
+  it("copies the whole hash from a chip that shows eight characters", () => {
+    // A short hash is what you read; a full one is what you paste.
+    expect(render).toContain("data-copy=\"' + escHtml(detail.hash)");
+    expect(render).toContain("escHtml(detail.hash.substring(0, 8))");
+  });
+
+  it("shows the file name before the directory it is in", () => {
+    // The list is a narrow column, so what has to survive the ellipsis is the
+    // name — which means it cannot be at the end.
+    const list = html.slice(html.indexOf("function renderFileListHtml"), html.indexOf("function renderFileActions"));
+    expect(list.indexOf("basename(f.path)")).toBeLessThan(list.indexOf("dirname(f.path)"));
+  });
+
+  it("gives the directory the slack so the stats and the buttons stay together", () => {
+    // Both .file-stat and .file-actions used to claim margin-left auto, which
+    // splits the leftover space and leaves the numbers floating mid-row.
+    expect(css).toMatch(/\.file-item \.file-dir \{[^}]*flex: 1/);
+    const actions = css.slice(css.indexOf(".file-actions {"));
+    expect(actions.slice(0, actions.indexOf("}"))).not.toContain("margin-left: auto");
+  });
+});

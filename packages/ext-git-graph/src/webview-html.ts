@@ -410,14 +410,55 @@ button:active { background: var(--surface); }
 #graph-svg-container .node-initials { font-size: 8px; font-weight: 700; fill: #fff; pointer-events: none; user-select: none; letter-spacing: -0.3px; }
 .commit-row.graph-hover { background: var(--surface-hover); }
 
-/* Detail panel */
-.detail-panel { border-top: 1px solid var(--border2); background: var(--surface); max-height: 40vh; overflow-y: auto; padding: 8px 12px; flex-shrink: 0; }
+/* Detail panel. The panel itself carries no padding, because the header is a
+   full-width sticky bar; anything else written into the panel wraps itself in
+   .detail-pad. */
+.detail-panel { border-top: 1px solid var(--border2); background: var(--surface); max-height: 40vh; overflow-y: auto; flex-shrink: 0; }
 .detail-panel h3 { font-size: 13px; margin-bottom: 6px; }
-.detail-field { margin-bottom: 3px; font-size: 11px; }
-.detail-field .label { color: var(--subtext); display: inline-block; width: 80px; }
-.detail-message { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px; margin: 6px 0; font-size: 11px; white-space: pre-wrap; font-family: 'SF Mono', 'Fira Code', monospace; }
-.file-list { margin-top: 8px; }
-.file-item { display: flex; align-items: center; gap: 5px; padding: 1px 0; font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace; }
+.detail-pad { padding: 8px 12px; }
+
+.detail-head { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 2; }
+.detail-head .avatar { width: 20px; height: 20px; font-size: 8px; }
+.detail-who { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.detail-author { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail-when { font-size: 11px; color: var(--subtext); white-space: nowrap; }
+.detail-head-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+/* A hash is a chip you can copy, not a 40-character field label. */
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border: 1px solid var(--border2); border-radius: 5px; background: var(--bg); color: var(--subtext); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; }
+.chip-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--subtle); }
+.chip.copyable { cursor: pointer; }
+.chip.copyable:hover { color: var(--text); border-color: var(--blue); }
+.chip.copied { color: var(--green); border-color: var(--green); }
+
+/* Two columns when there is room. A commit message is hard-wrapped by whoever
+   wrote it, so on a wide panel it fills half the width and the rest of the row
+   is empty; the file list goes there instead of below the fold. */
+.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px 20px; padding: 10px 12px 12px; align-items: start; }
+@media (min-width: 900px) {
+  .detail-grid.has-files { grid-template-columns: minmax(0, 1fr) minmax(240px, 38%); }
+}
+.detail-subject { font-size: 13px; font-weight: 600; line-height: 1.45; }
+.detail-text { margin-top: 8px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.file-list { margin-top: 8px; min-width: 0; }
+.detail-grid .file-list { margin-top: 0; }
+.files-head { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--subtext); border-bottom: 1px solid var(--border); margin-bottom: 3px; }
+.files-head .file-view-toggle { margin-bottom: 0; }
+.files-total { margin-left: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.files-total .add { color: var(--green); }
+.files-total .del { color: var(--red); }
+
+.file-item { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace; min-width: 0; }
+.file-item.file-clickable { cursor: pointer; }
+.file-item.file-clickable:hover { background: var(--surface-hover); }
+/* Name first, then the directory it is in: the column is narrow, so what has
+   to survive the ellipsis is the file name. */
+.file-item .file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; max-width: 60%; }
+/* The directory takes the slack, which is what leaves the stats and the row's
+   buttons together at the right edge instead of both claiming the same auto
+   margin and meeting somewhere in the middle. */
+.file-item .file-dir { color: var(--subtle); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto; }
 .file-status { display: inline-block; width: 14px; text-align: center; font-weight: 700; font-size: 10px; }
 .file-status-A { color: var(--green); }
 .file-status-M { color: var(--yellow); }
@@ -436,7 +477,7 @@ button:active { background: var(--surface); }
 .tree-dir-count { font-size: 11px; color: var(--subtle); }
 
 /* File actions */
-.file-actions { display: flex; gap: 2px; margin-left: auto; flex-shrink: 0; }
+.file-actions { display: flex; gap: 2px; margin-left: 6px; flex-shrink: 0; }
 .file-action-btn { min-width: 24px; min-height: 24px; padding: 0 4px; border: none; background: transparent; cursor: pointer; border-radius: 4px; font-size: 12px; color: var(--subtext); display: flex; align-items: center; justify-content: center; }
 .file-action-btn:hover { background: var(--surface-hover); color: var(--text); }
 .file-action-btn[data-action="discard"]:hover { color: var(--red); }
@@ -824,6 +865,15 @@ document.getElementById('detail-panel').addEventListener('contextmenu', (e) => {
 
 // --- File click delegation (opens diff tab) ---
 document.getElementById('detail-panel').addEventListener('click', (e) => {
+  // Hash chips. The clipboard write is silent, so the chip says it happened.
+  const chip = e.target.closest('.chip.copyable');
+  if (chip) {
+    e.stopPropagation();
+    copyText(chip.dataset.copy);
+    chip.classList.add('copied');
+    setTimeout(() => chip.classList.remove('copied'), 900);
+    return;
+  }
   // File-level action buttons (stage/unstage/discard/open)
   const actionBtn = e.target.closest('.file-action-btn');
   if (actionBtn) {
@@ -2124,14 +2174,27 @@ function renderFileTree(node, depth, hash, parentHash, section) {
   return html;
 }
 
+/* Split so the file name can be shown before the directory it sits in: the
+   list lives in a narrow column, and truncating from the end has to eat the
+   path, not the name. */
+function basename(path) {
+  const i = String(path).lastIndexOf('/');
+  return i === -1 ? String(path) : String(path).slice(i + 1);
+}
+function dirname(path) {
+  const i = String(path).lastIndexOf('/');
+  return i === -1 ? '' : String(path).slice(0, i);
+}
+
 function renderFileListHtml(files, hash, parentHash, section) {
   if (state.fileViewMode === 'tree') {
     return renderFileTree(buildFileTree(files), 0, hash, parentHash, section);
   }
   return files.map(f =>
-    '<div class="file-item file-clickable" data-path="' + escHtml(f.path) + '" data-hash="' + escHtml(hash) + '" data-parent="' + escHtml(parentHash || '') + '">' +
+    '<div class="file-item file-clickable" title="' + escHtml(f.path) + '" data-path="' + escHtml(f.path) + '" data-hash="' + escHtml(hash) + '" data-parent="' + escHtml(parentHash || '') + '">' +
       '<span class="file-status file-status-' + escHtml(f.status) + '">' + escHtml(f.status) + '</span>' +
-      '<span class="file-name">' + escHtml(f.path) + '</span>' +
+      '<span class="file-name">' + escHtml(basename(f.path)) + '</span>' +
+      (dirname(f.path) ? '<span class="file-dir">' + escHtml(dirname(f.path)) + '</span>' : '') +
       '<span class="file-stat">' +
         (f.additions > 0 ? '<span class="add">+' + f.additions + '</span> ' : '') +
         (f.deletions > 0 ? '<span class="del">-' + f.deletions + '</span>' : '') +
@@ -2166,7 +2229,7 @@ function renderUncommittedDetail() {
   panel.classList.remove('hidden');
   const u = state.uncommitted;
   if (!u) { panel.classList.add('hidden'); return; }
-  let html = '<h3>Uncommitted Changes</h3>';
+  let html = '<div class="detail-pad"><h3>Uncommitted Changes</h3>';
   const hasFiles = u.staged.length > 0 || u.unstaged.length > 0 || (u.conflicted && u.conflicted.length > 0);
   if (hasFiles) {
     html += fileViewToggleHtml();
@@ -2204,7 +2267,7 @@ function renderUncommittedDetail() {
   html += '<div class="commit-section">';
   html += '<textarea id="commit-message" placeholder="Commit message..." rows="3"></textarea>';
   html += '<div class="commit-actions"><button id="btn-commit" class="btn-sm btn-commit" disabled>Commit</button></div>';
-  html += '</div>';
+  html += '</div></div>';
   panel.innerHTML = html;
   wireCommitControls();
 }
@@ -2235,25 +2298,49 @@ function renderDetailPanel(detail) {
   const panel = document.getElementById('detail-panel');
   panel.classList.remove('hidden');
 
-  let html = '<h3>Commit Details</h3>';
-  html += '<div class="detail-field"><span class="label">Hash:</span> ' + escHtml(detail.hash) + '</div>';
-  html += '<div class="detail-field"><span class="label">Author:</span> ' + escHtml(detail.author) + ' &lt;' + escHtml(detail.authorEmail) + '&gt;</div>';
-  html += '<div class="detail-field"><span class="label">Date:</span> ' + new Date(detail.authorDate * 1000).toLocaleString() + '</div>';
+  // Who and when, then the hashes as chips. The four labelled fields this
+  // replaced spent a line each on things nobody reads in full: an author's
+  // email beside their name, a 40-character hash, and a timestamp in a format
+  // that answers "which afternoon" rather than "how long ago".
+  let head = '<div class="detail-head">' + avatarHtml(detail.author, detail.authorEmail);
+  head += '<div class="detail-who">';
+  head += '<span class="detail-author" title="' + escHtml(detail.authorEmail) + '">' + escHtml(detail.author) + '</span>';
+  head += '<span class="detail-when" title="' + escHtml(new Date(detail.authorDate * 1000).toLocaleString()) + '">committed ' + escHtml(formatDate(detail.authorDate)) + '</span>';
   if (detail.committer !== detail.author) {
-    html += '<div class="detail-field"><span class="label">Committer:</span> ' + escHtml(detail.committer) + ' &lt;' + escHtml(detail.committerEmail) + '&gt;</div>';
+    head += '<span class="detail-when" title="' + escHtml(detail.committerEmail) + '">via ' + escHtml(detail.committer) + '</span>';
   }
-  if (detail.parents.length > 0) {
-    html += '<div class="detail-field"><span class="label">Parents:</span> ' + detail.parents.map(p => escHtml(p.substring(0, 7))).join(', ') + '</div>';
+  head += '</div><div class="detail-head-actions">';
+  head += '<span class="chip copyable" data-copy="' + escHtml(detail.hash) + '" title="Copy ' + escHtml(detail.hash) + '">' + escHtml(detail.hash.substring(0, 8)) + '</span>';
+  for (const parent of detail.parents) {
+    head += '<span class="chip copyable" data-copy="' + escHtml(parent) + '" title="Parent ' + escHtml(parent) + '">'
+      + '<span class="chip-label">parent</span>' + escHtml(parent.substring(0, 7)) + '</span>';
   }
-  html += '<div class="detail-message">' + escHtml(detail.message) + '</div>';
+  head += '</div></div>';
 
+  // The subject carries the weight; the body keeps the author's own wrapping.
+  const message = String(detail.message || '');
+  const firstBreak = message.indexOf('\\n');
+  const subject = firstBreak === -1 ? message : message.slice(0, firstBreak);
+  const body = firstBreak === -1 ? '' : message.slice(firstBreak + 1).replace(/^\\n+/, '').replace(/\\s+$/, '');
+  let left = '<div><div class="detail-subject">' + formatCommitMessage(subject) + '</div>';
+  if (body) left += '<div class="detail-text">' + formatCommitMessage(body) + '</div>';
+  left += '</div>';
+
+  let right = '';
   if (detail.fileChanges && detail.fileChanges.length > 0) {
-    html += '<div class="file-list">' + fileViewToggleHtml() + '<strong>Files changed (' + detail.fileChanges.length + '):</strong>';
-    html += renderFileListHtml(detail.fileChanges, detail.hash, detail.parents[0] || '');
-    html += '</div>';
+    let added = 0, removed = 0;
+    for (const f of detail.fileChanges) { added += f.additions || 0; removed += f.deletions || 0; }
+    right = '<div class="file-list"><div class="files-head">'
+      + '<span>' + detail.fileChanges.length + (detail.fileChanges.length === 1 ? ' file' : ' files') + ' changed</span>'
+      + '<span class="files-total">'
+      + (added > 0 ? '<span class="add">+' + added + '</span> ' : '')
+      + (removed > 0 ? '<span class="del">-' + removed + '</span>' : '')
+      + '</span>' + fileViewToggleHtml() + '</div>'
+      + renderFileListHtml(detail.fileChanges, detail.hash, detail.parents[0] || '')
+      + '</div>';
   }
 
-  panel.innerHTML = html;
+  panel.innerHTML = head + '<div class="detail-grid' + (right ? ' has-files' : '') + '">' + left + right + '</div>';
 }
 
 // --- Context menu ---
