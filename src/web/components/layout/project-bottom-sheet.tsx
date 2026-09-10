@@ -296,6 +296,9 @@ export function ProjectBottomSheet({ isOpen, onClose }: ProjectBottomSheetProps)
                 onTouchStart={() => startLongPress(project.name)}
                 onTouchEnd={cancelLongPress}
                 onTouchMove={cancelLongPress}
+                // A scroll fires `touchcancel` and then delivers no further
+                // move/end, so the timer has to be disarmed here too.
+                onTouchCancel={cancelLongPress}
               >
                 <ProjectAvatar name={project.name} color={color} image={project.image} size={40} allNames={allNames} />
 

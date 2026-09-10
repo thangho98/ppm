@@ -165,6 +165,10 @@ export function MobileTabSwitcherSheet({
                     onTouchStart={() => startLongPress(tab.id)}
                     onTouchEnd={cancelLongPress}
                     onTouchMove={cancelLongPress}
+                    // Scrolling this list is what it is for, and a scroll fires
+                    // `touchcancel` and then stops sending move/end here — so
+                    // without this the timer completes into the moving list.
+                    onTouchCancel={cancelLongPress}
                     onContextMenu={(e) => e.preventDefault()}
                     className={cn(
                       "relative flex items-center gap-2.5 w-full h-11 rounded-lg pl-3.5 pr-2 transition-colors",

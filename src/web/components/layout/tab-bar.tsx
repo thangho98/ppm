@@ -76,7 +76,8 @@ export const TabBar = memo(function TabBar({ panelId }: TabBarProps) {
 
   const { dropIndex, handleDragStart, handleDragOver, handleDragOverBar, handleDrop, handleDragEnd } =
     useTabDrag(effectivePanelId);
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useTouchTabDrag(effectivePanelId);
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, handleTouchCancel } =
+    useTouchTabDrag(effectivePanelId);
 
   const { projectTags, loadTags } = useProjectTags(activeProject?.name);
   const [sessionTagMap, setSessionTagMap] = useState<Record<string, { id: number; name: string; color: string }>>({});
@@ -370,6 +371,7 @@ export const TabBar = memo(function TabBar({ panelId }: TabBarProps) {
               onTouchStart={(e) => handleTouchStart(e, tab.id, tab.title)}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchCancel}
               tabRef={(el) => {
                 if (el) tabRefs.current.set(tab.id, el);
                 else tabRefs.current.delete(tab.id);

@@ -876,7 +876,26 @@ function useLongPress(onLongPress: () => void, onTap: () => void, delay = 400) {
     }
   }, [clear, onTap]);
 
-  return { onTouchStart, onTouchMove, onTouchEnd };
+  /**
+   * The event that was missing, and the whole reason the menu opened by itself.
+   *
+   * Cancelling on `touchmove` looks like enough — but once the browser decides the
+   * gesture is a scroll it fires `touchcancel` and then delivers **no more**
+   * `touchmove` or `touchend` to this element. The 400ms timer therefore survives
+   * the scroll and fires into it: the list is still moving under the finger and a
+   * context menu appears over it, with nothing the reader did to ask for one.
+   * Scrolling a list of changed files is the commonest thing done on this panel.
+   */
+  const onTouchCancel = useCallback(() => {
+    movedRef.current = true;
+    clear();
+  }, [clear]);
+
+  // A row unmounted mid-press — the status refreshes on every file save — would
+  // otherwise still open its menu, now belonging to no row at all.
+  useEffect(() => clear, [clear]);
+
+  return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel };
 }
 
 /* ------------------------------------------------------------------ */

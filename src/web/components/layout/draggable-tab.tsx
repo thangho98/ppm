@@ -36,6 +36,12 @@ interface DraggableTabProps {
   onTouchStart?: (e: React.TouchEvent) => void;
   onTouchMove?: (e: React.TouchEvent) => void;
   onTouchEnd?: (e: React.TouchEvent) => void;
+  /**
+   * Forwarded like the others and easy to leave out, which is what happened.
+   * The press that arms a tab drag lives in `use-touch-tab-drag`, so a cancel
+   * that never reaches this element leaves that timer to fire into a scroll.
+   */
+  onTouchCancel?: (e: React.TouchEvent) => void;
   tabRef: (el: HTMLButtonElement | null) => void;
   /** If provided, double-clicking the title enters inline rename mode */
   onRename?: (newTitle: string) => void;
@@ -49,7 +55,7 @@ interface DraggableTabProps {
 
 export function DraggableTab({
   tab, isActive, icon: Icon, showDropBefore, notificationType, notificationManual, isStreaming, onSelect, onClose,
-  onDragStart, onDragOver, onDragEnd, onTouchStart, onTouchMove, onTouchEnd, tabRef, onRename, onContextAction,
+  onDragStart, onDragOver, onDragEnd, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, tabRef, onRename, onContextAction,
   tagColor, extraMenuContent,
 }: DraggableTabProps) {
   const [editing, setEditing] = useState(false);
@@ -96,6 +102,7 @@ export function DraggableTab({
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
       style={colorStyle}
       className={tabButtonClass(editorTabStyle, isActive, !!colorStyle)}
     >
