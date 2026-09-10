@@ -4,7 +4,7 @@ import { api, projectUrl } from "@/lib/api-client";
 import { useShallow } from "zustand/react/shallow";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useMonacoTheme } from "@/lib/use-monaco-theme";
-import { EDITOR_FONT_FAMILY } from "@/lib/editor-font";
+import { EDITOR_FONT_FAMILY, EDITOR_FONT_LIGATURES, EDITOR_FONT_SIZE } from "@/lib/editor-font";
 import { onHostResize } from "@/components/floating-window/pip/pip-resize-signal";
 import { Loader2, FileCode, WrapText, UserRound } from "lucide-react";
 import { useInlineBlame } from "@/hooks/use-inline-blame";
@@ -300,8 +300,9 @@ export function DiffViewer({ metadata }: DiffViewerProps) {
               );
             }}
             options={{
-              fontSize: isMobile ? 11 : 13,
+              fontSize: isMobile ? 11 : EDITOR_FONT_SIZE,
               fontFamily: EDITOR_FONT_FAMILY,
+              fontLigatures: EDITOR_FONT_LIGATURES,
               diffWordWrap: wrapOn ? "on" : "off",
               renderSideBySide,
               useInlineViewWhenSpaceIsLimited: false,

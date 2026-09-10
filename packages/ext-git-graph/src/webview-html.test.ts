@@ -334,12 +334,22 @@ describe("getWebviewHtml commit details", () => {
     expect(render).toContain("metaRow('Author'");
   });
 
-  it("always shows both dates once they disagree", () => {
-    // A rebase or an amend is exactly what makes the author date and the
-    // commit date differ, so folding them into one loses the interesting case.
-    expect(render).toContain("detail.commitDate !== detail.authorDate");
+  it("shows the same six fields every time, in the same order", () => {
+    // A field that comes and goes cannot be found by muscle memory, and a
+    // rebase or an amend is exactly what makes the author date and the commit
+    // date differ — so both are always here, as two labelled rows.
+    const order = ["'Commit'", "'Parent'", "'Author'", "'Author date'", "'Committer'", "'Commit date'"];
+    let at = -1;
+    for (const label of order) {
+      const found = render.indexOf("metaRow(" + label, at);
+      const alt = label === "'Parent'" ? render.indexOf("? 'Parents' : 'Parent'", at) : found;
+      expect(Math.max(found, alt)).toBeGreaterThan(at);
+      at = Math.max(found, alt);
+    }
     expect(render).toContain("whenCell(detail.authorDate)");
     expect(render).toContain("whenCell(detail.commitDate)");
+    // No row is conditional on the committer matching the author any more.
+    expect(render).not.toContain("sameHand");
   });
 
   it("says which timezone a commit time is in", () => {
@@ -370,8 +380,8 @@ describe("getWebviewHtml commit details", () => {
     expect(render).toContain("'<pre class=\"msg-pre\">'");
     // Prose in the UI font, verbatim blocks in monospace.
     const prose = css.slice(css.indexOf(".msg-p {"), css.indexOf(".msg-pre {"));
-    expect(prose).not.toContain("monospace");
-    expect(css.slice(css.indexOf(".msg-pre {"))).toContain("monospace");
+    expect(prose).not.toContain("--mono-font");
+    expect(css.slice(css.indexOf(".msg-pre {"))).toContain("var(--mono-font)");
   });
 
   it("spaces the body's blocks itself, because the reset zeroed the defaults", () => {
@@ -390,14 +400,15 @@ describe("getWebviewHtml commit details", () => {
     expect(lead.slice(0, lead.indexOf("}"))).toContain("var(--text)");
   });
 
-  it("puts the two dates in a column of their own where there is room", () => {
-    // Author date against commit date is a comparison, and a comparison needs
-    // the two values to line up.
-    expect(wide).toMatch(/\.detail-meta \{[^}]*grid-template-columns: max-content minmax\(0, 1fr\) max-content/);
-    expect(wide).toMatch(/\.meta-when \{[^}]*grid-column: 3/);
-    // Narrower, it wraps to its own line instead of squeezing the name.
-    const base = css.slice(css.indexOf(".meta-when {"));
-    expect(base.slice(0, base.indexOf("}"))).toContain("grid-column: 2 / -1");
+  it("gives every field one label and one value, at every width", () => {
+    // The dates used to ride in a third column so that they lined up with each
+    // other, which put each one a name's width from the name it belonged to
+    // and against the far edge of the pane. Two columns, one row per field.
+    expect(css).toMatch(/\.detail-meta \{[^}]*grid-template-columns: max-content minmax\(0, 1fr\);/);
+    expect(wide).not.toContain("grid-template-columns: max-content minmax(0, 1fr) max-content");
+    expect(wide).not.toContain(".meta-when");
+    const when = css.slice(css.indexOf(".meta-when {"));
+    expect(when.slice(0, when.indexOf("}"))).not.toContain("grid-column");
   });
 
   it("drops the header chips on a phone rather than truncating the author", () => {

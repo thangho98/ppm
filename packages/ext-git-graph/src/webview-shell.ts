@@ -25,6 +25,22 @@ const DARK_TOKENS = `
 `;
 
 /** Theme tokens, kept in sync with the graph panel's palette. */
+/**
+ * The font stacks every panel uses.
+ *
+ * Named here because the obvious stack is wrong on the platform PPM is most
+ * often self-hosted on: `-apple-system` and `Segoe UI` both miss on Linux, and
+ * a generic `sans-serif` can resolve to Liberation *Serif* through fontconfig —
+ * so the panels were set in an Arial clone with serif digits underneath it.
+ * `system-ui` asks the desktop what it actually uses (SF on macOS, Segoe on
+ * Windows, the session font on Linux) and the named families below it are only
+ * there for hosts where that keyword misses.
+ */
+export const FONT_TOKENS = `
+  --ui-font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Noto Sans', Cantarell, 'Helvetica Neue', Arial, sans-serif;
+  --mono-font: ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Noto Sans Mono', 'DejaVu Sans Mono', Consolas, monospace;
+`;
+
 export const SHELL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -36,12 +52,13 @@ export const SHELL_CSS = `
      give the same colour to both panel surfaces, which would leave a hovered
      row looking untouched. A tint of the text colour flips with the mode. */
   --surface-hover: color-mix(in srgb, var(--text) 8%, transparent);
+  ${FONT_TOKENS}
 }
 :root[data-ppm-theme="dark"] { ${DARK_TOKENS} }
 @media (prefers-color-scheme: dark) {
   :root:not([data-ppm-theme="light"]) { ${DARK_TOKENS} }
 }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+body { font-family: var(--ui-font); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; background: var(--bg); color: var(--text); font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 #app { display: flex; flex-direction: column; height: 100vh; min-height: 0; }
 code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 

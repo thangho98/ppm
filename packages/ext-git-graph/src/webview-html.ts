@@ -2,7 +2,7 @@
  * Generate the complete webview HTML for the git graph panel.
  * All JS + CSS is inlined since webview runs in an iframe sandbox.
  */
-import { AVATAR_JS } from "./webview-shell.ts";
+import { AVATAR_JS, FONT_TOKENS } from "./webview-shell.ts";
 import { COMMIT_MESSAGE_JS } from "./commit-message-html.ts";
 
 export function getWebviewHtml(): string {
@@ -206,12 +206,14 @@ function getStyles(): string {
   /* Width of the branch/tag column. Fixed, because the graph is one SVG overlay
      drawn on a single grid and it starts where this column ends. */
   --refs-col-w: 170px;
+
+  ${FONT_TOKENS}
 }
 :root[data-ppm-theme="dark"] { ${DARK_TOKENS} }
 @media (prefers-color-scheme: dark) {
   :root:not([data-ppm-theme="light"]) { ${DARK_TOKENS} }
 }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+body { font-family: var(--ui-font); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; background: var(--bg); color: var(--text); font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 #app { display: flex; flex-direction: column; height: 100vh; }
 
 /* Toolbar */
@@ -383,9 +385,9 @@ button:active { background: var(--surface); }
 .sr-item:hover { background: var(--surface-hover); }
 .sr-subject { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sr-meta { font-size: 10px; color: var(--subtext); display: flex; gap: 6px; align-items: center; margin-top: 2px; }
-.sr-hash { font-family: 'SF Mono', 'Fira Code', monospace; }
+.sr-hash { font-family: var(--mono-font); }
 .col-date { width: 80px; min-width: 80px; color: var(--subtext); font-size: 11px; }
-.col-hash { width: 60px; min-width: 60px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; color: var(--subtle); }
+.col-hash { width: 60px; min-width: 60px; font-family: var(--mono-font); font-size: 10px; color: var(--subtle); }
 
 /* Ref badges — border + tinted bg + dark text */
 .ref-badge { display: inline-flex; align-items: center; gap: 3px; padding: 0px 5px; border-radius: 3px; font-size: 9px; font-weight: 600; margin-right: 3px; vertical-align: middle; line-height: 16px; border: 1px solid; color: #1a1a1a; }
@@ -425,8 +427,8 @@ button:active { background: var(--surface); }
 .detail-head-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
 /* A hash is a chip you can copy, not a 40-character field label. */
-.chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border: 1px solid var(--border2); border-radius: 5px; background: var(--bg); color: var(--subtext); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; }
-.chip-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--subtle); }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border: 1px solid var(--border2); border-radius: 5px; background: var(--bg); color: var(--subtext); font-family: var(--mono-font); font-size: 10px; }
+.chip-label { font-family: var(--ui-font); font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--subtle); }
 .chip.copyable { cursor: pointer; }
 .chip.copyable:hover { color: var(--text); border-color: var(--blue); }
 .chip.copied { color: var(--green); border-color: var(--green); }
@@ -444,11 +446,11 @@ button:active { background: var(--surface); }
    14px semibold against 11.5px monospace already reads as two things. The rule
    belongs here rather than to the body, which is capped at a readable measure
    and would stop the border short of the pane for no visible reason. */
-.detail-meta { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; align-items: baseline; font-size: 11px; margin-bottom: 12px; padding-bottom: 11px; border-bottom: 1px solid var(--border); }
-.meta-label { color: var(--subtle); font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-.meta-cells { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 12px; min-width: 0; }
+.detail-meta { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 14px; align-items: baseline; font-size: 11.5px; margin-bottom: 14px; padding-bottom: 13px; border-bottom: 1px solid var(--border); }
+.meta-label { color: var(--subtext); font-size: 11.5px; white-space: nowrap; }
+.meta-cells { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 14px; min-width: 0; }
 .meta-value { min-width: 0; overflow-wrap: anywhere; cursor: pointer; }
-.meta-value.mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10.5px; color: var(--subtle); }
+.meta-value.mono { font-family: var(--mono-font); font-size: 11.5px; color: var(--subtle); }
 /* The eight characters that identify the commit carry the contrast; the other
    thirty-two are there to be copied, not read. */
 .hash-lead { color: var(--text); font-weight: 600; }
@@ -457,20 +459,20 @@ button:active { background: var(--surface); }
 .meta-value:hover .hash-lead, .meta-value:hover .meta-name, .meta-value:hover .meta-email { color: var(--blue); }
 .meta-value:hover { color: var(--blue); }
 .meta-value.copied, .meta-value.copied .hash-lead, .meta-value.copied .meta-name, .meta-value.copied .meta-email { color: var(--green); }
-.meta-when { color: var(--subtext); white-space: nowrap; font-variant-numeric: tabular-nums; grid-column: 2 / -1; }
-.detail-subject { font-size: 14px; font-weight: 600; line-height: 1.4; letter-spacing: -0.1px; }
+.meta-when { color: var(--subtext); font-variant-numeric: tabular-nums; }
+.detail-subject { font-size: 15px; font-weight: 600; line-height: 1.4; letter-spacing: -0.1px; }
 
 /* The body. A paragraph its author wrapped at 72 columns is set as prose in the
    UI font and reflowed to the pane it is actually in — verbatim monospace gave
    a ragged half-filled column of the wrong width. A list or an aligned block is
    not reflowable and keeps its breaks and its monospace; splitCommitBody
    decides which is which. */
-.detail-text { margin-top: 12px; }
-.msg-p { font-size: 12px; line-height: 1.65; max-width: 76ch; }
-.msg-pre { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.detail-text { margin-top: 13px; }
+.msg-p { font-size: 13px; line-height: 1.7; max-width: 68ch; color: var(--subtext); }
+.msg-pre { font-family: var(--mono-font); font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--subtext); }
 /* The reset zeroes every margin, so the space between paragraphs is set here
    rather than inherited from the browser's default for a p element. */
-.msg-p + .msg-p, .msg-p + .msg-pre, .msg-pre + .msg-p, .msg-pre + .msg-pre { margin-top: 11px; }
+.msg-p + .msg-p, .msg-p + .msg-pre, .msg-pre + .msg-p, .msg-pre + .msg-pre { margin-top: 13px; }
 
 /* One scrollbar per pane above the breakpoint. A long message and a long file
    list are two lists of unrelated length, and scrolling the pair as one means
@@ -486,25 +488,17 @@ button:active { background: var(--surface); }
   /* The pane's own top padding would sit above a sticky header, leaving a strip
      for rows to scroll through; the header carries that space instead. */
   .detail-panel.split .files-head { position: sticky; top: 0; background: var(--surface); z-index: 1; padding: 8px 0 3px; }
-  /* A third column for the dates, so the author's and the committer's land one
-     under the other — the only way to see at a glance that a commit was
-     written on the third and landed on the eighth. Narrower than this there is
-     no room, and the date wraps onto its own line instead. */
-  .detail-meta { grid-template-columns: max-content minmax(0, 1fr) max-content; }
-  .meta-cells { grid-column: 2; }
-  .meta-cells.wide { grid-column: 2 / -1; }
-  .meta-when { grid-column: 3; }
 }
 
 .file-list { margin-top: 8px; min-width: 0; }
 .detail-files .file-list { margin-top: 0; }
 .files-head { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--subtext); border-bottom: 1px solid var(--border); margin-bottom: 3px; }
 .files-head .file-view-toggle { margin-bottom: 0; }
-.files-total { margin-left: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.files-total { margin-left: auto; font-family: var(--mono-font); font-size: 10px; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
 .files-total .add { color: var(--green); }
 .files-total .del { color: var(--red); }
 
-.file-item { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace; min-width: 0; }
+.file-item { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; font-size: 11px; font-family: var(--mono-font); min-width: 0; }
 .file-item.file-clickable { cursor: pointer; }
 .file-item.file-clickable:hover { background: var(--surface-hover); }
 /* Name first, then the directory it is in: the column is narrow, so what has
@@ -578,12 +572,12 @@ button:active { background: var(--surface); }
 .remote-item { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
 .remote-item:last-child { border-bottom: none; }
 .remote-item .remote-name { font-weight: 600; margin-bottom: 2px; }
-.remote-item .remote-url { color: var(--subtext); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; word-break: break-all; }
+.remote-item .remote-url { color: var(--subtext); font-family: var(--mono-font); font-size: 11px; word-break: break-all; }
 .remote-actions { display: flex; gap: 4px; margin-top: 4px; }
 .add-remote-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .add-remote-form input { background: var(--bg); color: var(--text); border: 1px solid var(--border2); border-radius: 4px; padding: 4px 6px; font-size: 12px; }
 .issue-rule-row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
-.issue-rule-row input { flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--border2); border-radius: 4px; padding: 3px 6px; font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace; }
+.issue-rule-row input { flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--border2); border-radius: 4px; padding: 3px 6px; font-size: 11px; font-family: var(--mono-font); }
 .issue-rule-row input.rule-error { border-color: var(--red); }
 .issue-rule-row .rule-remove { min-width: 24px; min-height: 24px; padding: 0; font-size: 14px; color: var(--red); border: none; }
 @media (max-width: 768px) { .settings-panel { width: 100%; } }
@@ -2397,13 +2391,13 @@ function whenCell(ts) {
   return '<span class="meta-when">' + escHtml(when.toLocaleString(undefined, WHEN_FORMAT)) + '</span>';
 }
 
-/* The when is a grid cell of its own rather than part of the value, which is
-   what puts the two dates in one column: the only way to see at a glance that
-   a commit was authored on the third and landed on the eighth. */
-function metaRow(label, cells, when) {
+/* One label, one value, every row the same shape. The date used to ride along
+   in a third column so that the two dates lined up — which put it a name's
+   width away from the name it belonged to, and stranded it against the far edge
+   of the pane on any row that had one. A date is a field like the others. */
+function metaRow(label, cells) {
   return '<div class="meta-label">' + escHtml(label) + '</div>'
-    + '<div class="meta-cells' + (when ? '' : ' wide') + '">' + cells.join('') + '</div>'
-    + (when || '');
+    + '<div class="meta-cells">' + cells.join('') + '</div>';
 }
 
 function renderDetailPanel(detail) {
@@ -2428,19 +2422,20 @@ function renderDetailPanel(detail) {
   head += '</div></div>';
 
   // Then the full values. The chips above are what you glance at and copy; a
-  // hash you have to *read* is forty characters, and the two dates are only
-  // interesting when they disagree — which is exactly what a rebase or an
-  // amend does to them, so both are always here rather than folded into one.
+  // hash you have to *read* is forty characters. Every row is always here, in
+  // the same order, even when the committer repeats the author: a field that
+  // comes and goes cannot be found by muscle memory, and the two dates only
+  // mean anything next to each other — which is what a rebase or an amend does
+  // to them, and the reason both are separate fields rather than one date.
   let meta = '<div class="detail-meta">';
   meta += metaRow('Commit', [hashCell(detail.hash)]);
   if (detail.parents.length > 0) {
     meta += metaRow(detail.parents.length > 1 ? 'Parents' : 'Parent', detail.parents.map(hashCell));
   }
-  meta += metaRow('Author', [personCell(detail.author, detail.authorEmail)], whenCell(detail.authorDate));
-  const sameHand = detail.committer === detail.author && detail.committerEmail === detail.authorEmail;
-  if (!sameHand || detail.commitDate !== detail.authorDate) {
-    meta += metaRow('Committer', [personCell(detail.committer, detail.committerEmail)], whenCell(detail.commitDate));
-  }
+  meta += metaRow('Author', [personCell(detail.author, detail.authorEmail)]);
+  meta += metaRow('Author date', [whenCell(detail.authorDate)]);
+  meta += metaRow('Committer', [personCell(detail.committer, detail.committerEmail)]);
+  meta += metaRow('Commit date', [whenCell(detail.commitDate)]);
   meta += '</div>';
 
   // The subject carries the weight; the body keeps the author's own wrapping.
