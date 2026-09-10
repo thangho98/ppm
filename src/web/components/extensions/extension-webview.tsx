@@ -3,6 +3,8 @@ import { useExtensionStore } from "@/stores/extension-store";
 import { getAuthToken } from "@/lib/api-client";
 import { THEME_CHANGE_EVENT } from "@/theme/apply-theme";
 import { HOST_THEME_MESSAGE, injectHostTheme, readHostTheme } from "./webview-theme";
+import { commandRunsGit } from "@/lib/git-repo-scope";
+import { resolveGitRoot } from "@/stores/git-repo-store";
 import { Loader2 } from "lucide-react";
 
 /** Inject acquireVsCodeApi() shim so extension webviews can postMessage to parent */
@@ -18,6 +20,28 @@ function injectVscodeApiShim(html: string): string {
     return html.slice(0, headIdx + 6) + VSCODE_API_SHIM + html.slice(headIdx + 6);
   }
   return VSCODE_API_SHIM + html;
+}
+
+/**
+ * The path the recovery dispatch should hand the command.
+ *
+ * Fetched rather than read from the project store because a panel can be
+ * restored before the store has anything in it. A git view is then re-pointed
+ * at the repository the user chose, exactly as the live dispatch sites do —
+ * otherwise a reload reopens the graph on the container folder and it reports
+ * no repository.
+ */
+async function resolveDispatchPath(projectName: string, command: string): Promise<string | undefined> {
+  try {
+    const token = getAuthToken();
+    const res = await fetch("/api/projects", token ? { headers: { Authorization: `Bearer ${token}` } } : {});
+    const json = await res.json() as { ok: boolean; data?: { name: string; path: string }[] };
+    const match = json.data?.find((p) => p.name === projectName);
+    if (!match) return undefined;
+    return commandRunsGit(command) ? await resolveGitRoot(projectName, match.path) : match.path;
+  } catch {
+    return undefined;
+  }
 }
 
 interface ExtensionWebviewProps {
@@ -88,13 +112,8 @@ export function ExtensionWebview({ metadata }: ExtensionWebviewProps) {
     async function dispatch() {
       let args: unknown[] = [];
       if (projectName) {
-        try {
-          const token = getAuthToken();
-          const res = await fetch("/api/projects", token ? { headers: { Authorization: `Bearer ${token}` } } : {});
-          const json = await res.json() as { ok: boolean; data?: { name: string; path: string }[] };
-          const match = json.data?.find((p) => p.name === projectName);
-          if (match) args = [match.path];
-        } catch {}
+        const path = await resolveDispatchPath(projectName, command);
+        if (path) args = [path];
       }
       if (cancelled) return;
       window.dispatchEvent(new CustomEvent("ext:command:execute", {
@@ -125,16 +144,10 @@ export function ExtensionWebview({ metadata }: ExtensionWebviewProps) {
     if (!viewType) return;
     const command = viewType.includes(".") ? viewType : `${viewType}.view`;
     (async () => {
-      try {
-        const token = getAuthToken();
-        const res = await fetch("/api/projects", token ? { headers: { Authorization: `Bearer ${token}` } } : {});
-        const json = await res.json() as { ok: boolean; data?: { name: string; path: string }[] };
-        const match = json.data?.find((p) => p.name === projectName);
-        const args = match ? [match.path] : [];
-        window.dispatchEvent(new CustomEvent("ext:command:execute", {
-          detail: { command, args, recovery: true },
-        }));
-      } catch {}
+      const path = projectName ? await resolveDispatchPath(projectName, command) : undefined;
+      window.dispatchEvent(new CustomEvent("ext:command:execute", {
+        detail: { command, args: path ? [path] : [], recovery: true },
+      }));
     })();
   }, [viewType, projectName]);
 

@@ -10,7 +10,7 @@ import type { VscodeApi } from "./git-exec.ts";
 import {
   assertSafeFilePaths, assertValidHash, assertValidRef, assertValidRemote, spawnGit,
 } from "./git-exec.ts";
-import { authHeaders, getBaseUrl, initPpmApi, resolveProjectName } from "./ppm-api.ts";
+import { authHeaders, getBaseUrl, initPpmApi, resolveFileTab } from "./ppm-api.ts";
 import { registerBlameView } from "./blame-view.ts";
 import { registerFileHistoryView } from "./file-history-view.ts";
 import { registerCompareView } from "./compare-view.ts";
@@ -117,10 +117,9 @@ function openGitGraph(
         case "openDiff": {
           assertSafeFilePaths([msg.filePath], pp);
           const fileName = msg.filePath.split(/[\\/]/).pop() || msg.filePath;
-          const projectName = await resolveProjectName(pp);
-          await vscode.window.openTab("git-diff", `${fileName} (${msg.hash.substring(0, 7)})`, projectName, {
-            projectName,
-            filePath: msg.filePath,
+          const target = await resolveFileTab(pp, msg.filePath);
+          await vscode.window.openTab("git-diff", `${fileName} (${msg.hash.substring(0, 7)})`, target.projectName, {
+            ...target,
             ...(msg.parentHash ? { ref1: msg.parentHash } : {}),
             ...(msg.hash !== "uncommitted" && msg.hash !== "staged" ? { ref2: msg.hash } : {}),
           });
@@ -198,11 +197,8 @@ function openGitGraph(
           break;
         case "openFile": {
           assertSafeFilePaths([msg.filePath], pp);
-          const projectName = await resolveProjectName(pp);
-          await vscode.window.openTab("editor", msg.filePath, projectName, {
-            projectName,
-            filePath: msg.filePath,
-          });
+          const target = await resolveFileTab(pp, msg.filePath);
+          await vscode.window.openTab("editor", msg.filePath, target.projectName, target);
           break;
         }
         case "requestWorktrees":
@@ -348,12 +344,9 @@ function openGitGraph(
           break;
         case "openConflictFile": {
           assertSafeFilePaths([msg.filePath], pp);
-          const projectName = await resolveProjectName(pp);
+          const target = await resolveFileTab(pp, msg.filePath);
           // Opens as conflict-editor tab (Phase 4 will wire this properly)
-          await vscode.window.openTab("conflict-editor", `Conflict: ${msg.filePath.split(/[\\/]/).pop()}`, projectName, {
-            projectName,
-            filePath: msg.filePath,
-          });
+          await vscode.window.openTab("conflict-editor", `Conflict: ${msg.filePath.split(/[\\/]/).pop()}`, target.projectName, target);
           break;
         }
         case "openSourceControl": {
