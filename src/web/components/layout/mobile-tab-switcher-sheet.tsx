@@ -5,7 +5,7 @@
  * buildTabSwitcherGroups helper; this file is presentation + wiring only.
  */
 import { useState, useRef, useCallback } from "react";
-import { Search, X, Plus, Columns2 } from "@/lib/icons";
+import { Search, X, Plus, Columns2, MessageCircle } from "@/lib/icons";
 import { BottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { usePanelStore } from "@/stores/panel-store";
 import { useNotificationStore, notificationColor } from "@/stores/notification-store";
@@ -183,7 +183,12 @@ export function MobileTabSwitcherSheet({
                     />
                     {/* Icon with streaming typing-dots / unread notification badge */}
                     <span className={cn("relative shrink-0", isStreaming && "text-warning")}>
-                      <Icon className={cn("size-4", isStreaming ? undefined : isActive ? "text-primary" : "text-text-secondary")} />
+                      {/* Empty bubble while streaming so the dots below have room — see draggable-tab.tsx */}
+                      {isStreaming ? (
+                        <MessageCircle className="size-4" />
+                      ) : (
+                        <Icon className={cn("size-4", isActive ? "text-primary" : "text-text-secondary")} />
+                      )}
                       {isStreaming ? (
                         <span aria-hidden className="absolute inset-0 flex items-center justify-center gap-[1.5px]">
                           <span className="tab-typing-dot size-[2px] rounded-full bg-current" />

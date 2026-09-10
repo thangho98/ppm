@@ -204,6 +204,10 @@ const MAP: Record<string, string | null> = {
   Brain: "brain-circuit",
   Lightbulb: "lightbulb",
   MessageSquare: "chat",
+  // The empty bubble, for the tab's streaming indicator. `chat` already draws
+  // two message lines inside itself, so the typing dots landed on top of them
+  // and welded into one smudge at 16px — the bounce had nothing legible to move.
+  MessageCircle: "chat-empty",
   QrCode: "qr-code",
   Hexagon: null, // a shape, not a concept — lucide's is the right weight
   Slash: null,
