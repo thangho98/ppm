@@ -450,7 +450,7 @@ button:active { background: var(--surface); }
 .meta-label { color: var(--subtext); font-size: 11.5px; white-space: nowrap; }
 .meta-cells { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 14px; min-width: 0; }
 .meta-value { min-width: 0; overflow-wrap: anywhere; cursor: pointer; }
-.meta-value.mono { font-family: var(--mono-font); font-size: 11.5px; color: var(--subtle); }
+.meta-value.mono { font-family: var(--mono-font); font-size: 11.5px; color: var(--subtext); }
 /* The eight characters that identify the commit carry the contrast; the other
    thirty-two are there to be copied, not read. */
 .hash-lead { color: var(--text); font-weight: 600; }
@@ -468,8 +468,8 @@ button:active { background: var(--surface); }
    not reflowable and keeps its breaks and its monospace; splitCommitBody
    decides which is which. */
 .detail-text { margin-top: 13px; }
-.msg-p { font-size: 13px; line-height: 1.7; max-width: 68ch; color: var(--subtext); }
-.msg-pre { font-family: var(--mono-font); font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--subtext); }
+.msg-p { font-size: 13px; line-height: 1.7; max-width: 68ch; }
+.msg-pre { font-family: var(--mono-font); font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* The reset zeroes every margin, so the space between paragraphs is set here
    rather than inherited from the browser's default for a p element. */
 .msg-p + .msg-p, .msg-p + .msg-pre, .msg-pre + .msg-p, .msg-pre + .msg-pre { margin-top: 13px; }
