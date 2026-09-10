@@ -39,6 +39,21 @@ function deriveColors(theme: PpmTheme): Record<string, string> {
   return { ...colors, ...theme.editor?.colors };
 }
 
+/**
+ * Where Monaco itself comes from.
+ *
+ * `@monaco-editor/react` defaults to `cdn.jsdelivr.net` — nothing in PPM had
+ * ever told it otherwise, so the editor did not work without the public
+ * internet. `scripts/copy-monaco.ts` stages the same files under `assets/`, so
+ * they arrive from PPM, `immutable` and brotli-compressed.
+ *
+ * This has to run before the first `loader.init()`, which is why it is at module
+ * scope in a module `app.tsx` imports eagerly rather than inside a component:
+ * `loader.config` after init is ignored, and the failure would be a silent
+ * return to the CDN.
+ */
+loader.config({ paths: { vs: "/assets/monaco/vs" } });
+
 let monacoRef: typeof import("monaco-editor") | null = null;
 
 async function ensureDefined(theme: PpmTheme): Promise<string> {
