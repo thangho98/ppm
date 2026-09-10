@@ -74,6 +74,19 @@ describe("the fonts every surface asks for", () => {
     expect(globals).toMatch(/--font-sans:[^;]*"Noto Sans"[^;]*sans-serif;/);
   });
 
+  it("names the installed superset behind the subset it bundles", () => {
+    // A `@font-face` shadows a system font of the same family name *entirely*,
+    // so the bundled Latin subset wins even on a host with the full Monaspace
+    // installed — and a Vietnamese comment falls per-glyph to the platform
+    // monospace while the right font sits unused. The variable build carries
+    // its own family name, so naming it separately picks up exactly the glyphs
+    // the subset lacks, in the same typeface.
+    expect(EDITOR_FONT_FAMILY).toContain("'Monaspace Argon', 'Monaspace Argon Var'");
+    expect(GHOST_TEXT_FONT_FAMILY).toContain("'Monaspace Krypton', 'Monaspace Krypton Var'");
+    expect(globals).toMatch(/--font-sans:\s*"Geist Variable",\s*"Geist"/);
+    expect(globals).toMatch(/--font-mono:\s*"Monaspace Argon",\s*"Monaspace Argon Var"/);
+  });
+
   it("asks for the ligatures and every stylistic set", () => {
     // ss01-ss09 are where Monaspace's texture healing lives — the part that
     // narrows an i beside an m so `www.mmm.iii` stops looking like a fence.

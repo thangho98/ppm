@@ -15,16 +15,26 @@
  * width, and a family with a different advance would slide out of the grid.
  */
 
-/** Editor, diff panes and the conflict resolver. */
+/**
+ * Editor, diff panes and the conflict resolver.
+ *
+ * `Monaspace Argon Var` sits second on purpose. The bundled face is the Latin
+ * subset, and a `@font-face` shadows a system font of the same family name
+ * entirely — so on a host where the full Monaspace is installed, a Vietnamese
+ * comment would still fall per-glyph to the platform monospace while the right
+ * font sat unused. The variable build is installed under its own family name,
+ * so naming it separately picks up exactly the glyphs the subset lacks, in the
+ * same typeface.
+ */
 export const EDITOR_FONT_FAMILY =
-  "'Monaspace Argon', Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', 'Courier New', monospace";
+  "'Monaspace Argon', 'Monaspace Argon Var', Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', 'Courier New', monospace";
 
 /**
  * Inline suggestions. A different face at the same metrics says "this is not
  * your code yet" without moving a single character.
  */
 export const GHOST_TEXT_FONT_FAMILY =
-  "'Monaspace Krypton', 'Monaspace Argon', Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', monospace";
+  "'Monaspace Krypton', 'Monaspace Krypton Var', 'Monaspace Argon', Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', monospace";
 
 /**
  * The terminal. MesloLGM Nerd Font first because a shell prompt is full of
@@ -34,7 +44,7 @@ export const GHOST_TEXT_FONT_FAMILY =
  * Monaspace Argon is bundled and the glyphs fall back per character.
  */
 export const TERMINAL_FONT_FAMILY =
-  "'MesloLGM Nerd Font', 'MesloLGS Nerd Font', 'Symbols Nerd Font', 'Monaspace Argon', Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', 'Courier New', monospace";
+  "'MesloLGM Nerd Font', 'MesloLGS Nerd Font', 'Symbols Nerd Font', 'Monaspace Argon', 'Monaspace Argon Var', Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', 'Courier New', monospace";
 
 /**
  * Monaspace's ligatures plus every stylistic set, which is where its texture

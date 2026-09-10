@@ -28,17 +28,24 @@ const DARK_TOKENS = `
 /**
  * The font stacks every panel uses.
  *
- * Named here because the obvious stack is wrong on the platform PPM is most
- * often self-hosted on: `-apple-system` and `Segoe UI` both miss on Linux, and
- * a generic `sans-serif` can resolve to Liberation *Serif* through fontconfig —
- * so the panels were set in an Arial clone with serif digits underneath it.
- * `system-ui` asks the desktop what it actually uses (SF on macOS, Segoe on
- * Windows, the session font on Linux) and the named families below it are only
- * there for hosts where that keyword misses.
+ * A panel cannot use the ones the app bundles. It is a sandboxed iframe with an
+ * opaque origin, so a `@font-face` pointing at `/assets/` is a cross-origin
+ * fetch the font would need CORS headers to answer — and the file name carries
+ * Vite's content hash, which the extension has no way to know. So the stack
+ * asks for the same typefaces *by name* and gets them when they are installed
+ * on the host, which is the one case where the panel and the app match exactly.
+ *
+ * Everything after that is for the host where they are not. It matters, because
+ * the obvious stack is wrong on the platform PPM is most often self-hosted on:
+ * `-apple-system` and `Segoe UI` both miss on Linux and a generic `sans-serif`
+ * can resolve to Liberation *Serif* through fontconfig, which is how these
+ * panels came to be set in an Arial clone with serif digits underneath.
+ * `system-ui` asks the desktop what it actually uses; the named families below
+ * it are for the hosts where even that keyword misses.
  */
 export const FONT_TOKENS = `
-  --ui-font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Noto Sans', Cantarell, 'Helvetica Neue', Arial, sans-serif;
-  --mono-font: ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Noto Sans Mono', 'DejaVu Sans Mono', Consolas, monospace;
+  --ui-font: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Noto Sans', Cantarell, 'Helvetica Neue', Arial, sans-serif;
+  --mono-font: 'Monaspace Argon', 'Monaspace Argon Var', ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Noto Sans Mono', 'DejaVu Sans Mono', Consolas, monospace;
 `;
 
 export const SHELL_CSS = `
@@ -60,7 +67,7 @@ export const SHELL_CSS = `
 }
 body { font-family: var(--ui-font); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; background: var(--bg); color: var(--text); font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 #app { display: flex; flex-direction: column; height: 100vh; min-height: 0; }
-code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+code, .mono { font-family: var(--mono-font); }
 
 #toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 10px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 4px; min-width: 0; }
