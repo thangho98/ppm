@@ -68,8 +68,13 @@ describe("the gestures the rows still have to answer", () => {
     // The adaptive trigger provides no tap: it only *suppresses* the click that
     // follows a long press. So the tap has to be a real button, which is also
     // what makes the row reachable by keyboard.
+    //
+    // Only the gesture is pinned here, not the row's typography: this once
+    // matched the whole class list and failed against the tree redesign, which
+    // changed how the name is sized and truncated and nothing about the tap.
+    // `git-file-tree.test.ts` is what pins the appearance.
     expect(src).toMatch(
-      /<button\s+type="button"\s+className="flex-1 text-left text-xs font-mono truncate min-w-0[^"]*"\s+onClick=\{\(\) => onClickFile\(file\)\}/,
+      /<button\s+type="button"\s+className="flex-1[^"]*"\s+onClick=\{\(\) => onClickFile\(file\)\}/,
     );
   });
 
