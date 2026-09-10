@@ -324,12 +324,50 @@ describe("getWebviewHtml commit details", () => {
     html.indexOf("function renderUncommittedDetail"), html.indexOf("function wireCommitControls"),
   );
 
-  it("no longer prints the commit as four labelled fields", () => {
-    // "Hash:" with all forty characters, "Author:" with the email beside the
-    // name, and a timestamp that answers which afternoon rather than how long
-    // ago — a line each, and a debug dump to read.
-    expect(html).not.toContain("detail-field");
+  it("reads the commit twice: glanceable in the header, in full below", () => {
+    // The header answers who and how long ago; the grid under it answers with
+    // the forty-character hash, both emails and both dates. The old version
+    // had only the second half, as a stack of labelled lines with a heading.
     expect(render).not.toContain("Commit Details");
+    expect(render).toContain("formatDate(detail.authorDate)");
+    expect(render).toContain("metaRow('Commit'");
+    expect(render).toContain("metaRow('Author'");
+  });
+
+  it("always shows both dates once they disagree", () => {
+    // A rebase or an amend is exactly what makes the author date and the
+    // commit date differ, so folding them into one loses the interesting case.
+    expect(render).toContain("detail.commitDate !== detail.authorDate");
+    expect(render).toContain("whenCell(detail.authorDate)");
+    expect(render).toContain("whenCell(detail.commitDate)");
+  });
+
+  it("says which timezone a commit time is in", () => {
+    // 09:13 means nothing without knowing whose morning it was — and asking
+    // for a timezone name alongside dateStyle or timeStyle is a TypeError, so
+    // the format has to be spelled out component by component. Behind a catch
+    // that throw looks identical to a locale with no timezone to offer.
+    const fmt = html.slice(html.indexOf("const WHEN_FORMAT"), html.indexOf("function whenCell"));
+    expect(fmt).toContain("timeZoneName: 'short'");
+    expect(fmt).not.toContain("dateStyle");
+    expect(fmt).not.toContain("timeStyle");
+  });
+
+  it("formats a commit time with a real Intl call", () => {
+    // The options above are only correct if Intl accepts them together, which
+    // is a runtime question, not a source one.
+    const fmt = html.slice(html.indexOf("const WHEN_FORMAT = {"), html.indexOf("function whenCell"));
+    const options = new Function("return " + fmt.slice(fmt.indexOf("{"), fmt.lastIndexOf("}") + 1))();
+    const text = new Date(1788943142_000).toLocaleString(undefined, options);
+    expect(text).toMatch(/GMT|UTC/);
+  });
+
+  it("copies any value it shows, by one delegate", () => {
+    // The hash chips and the metadata values are the same affordance; two
+    // handlers would be two chances for one of them to stop working.
+    const handler = html.slice(html.indexOf("// Hash chips and metadata values"));
+    expect(handler.slice(0, 400)).toContain("closest('[data-copy]')");
+    expect(html).toContain('data-copy="\' + escHtml(text)');
   });
 
   /** The block that turns the panel into two panes. */
@@ -360,10 +398,16 @@ describe("getWebviewHtml commit details", () => {
     expect(wide).toMatch(/\.detail-panel\.split \.files-head \{[^}]*position: sticky[^}]*padding:/);
   });
 
-  it("keeps the rule under the subject off a commit with no body", () => {
-    // The body is capped at a readable measure, which is why the rule belongs
-    // to the subject — and a subject with nothing under it should not wear one.
-    expect(css).toContain(".detail-subject:only-child { padding-bottom: 0; border-bottom: none; }");
+  it("draws one rule in the left pane, under the metadata", () => {
+    // Two hairlines in a 360px panel is furniture; 14px semibold against
+    // 11.5px monospace already reads as two different things. And the rule
+    // cannot belong to the body, which is capped at a readable measure and
+    // would stop the border short of the pane edge for no visible reason.
+    expect(css).toMatch(/\.detail-meta \{[^}]*border-bottom: 1px solid var\(--border\)/);
+    const subject = css.slice(css.indexOf(".detail-subject {"));
+    expect(subject.slice(0, subject.indexOf("}"))).not.toContain("border-bottom");
+    const text = css.slice(css.indexOf(".detail-text {"));
+    expect(text.slice(0, text.indexOf("}"))).not.toContain("border");
   });
 
   it("only splits when a commit is showing, and hands the scrollbar back", () => {

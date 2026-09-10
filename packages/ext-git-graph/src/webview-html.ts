@@ -438,14 +438,21 @@ button:active { background: var(--surface); }
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
 .detail-msg { padding: 12px 16px 16px; min-width: 0; }
 .detail-files { padding: 8px 12px 12px; min-width: 0; }
-/* A rule and some air under the subject: the body is a different kind of text
-   and used to start one line below it in the same block. The rule belongs to
-   the subject rather than the body, because the body is capped at a readable
-   measure and a border on it stops short of the pane for no visible reason. */
-.detail-subject { font-size: 14px; font-weight: 600; line-height: 1.4; letter-spacing: -0.1px; padding-bottom: 11px; border-bottom: 1px solid var(--border); }
-/* A one-line commit has no body, and a rule under the subject with nothing
-   below it is just a line. */
-.detail-subject:only-child { padding-bottom: 0; border-bottom: none; }
+/* Full hashes, both emails and both dates, in a label/value grid. One rule
+   under it separates the provenance from the message; the subject carries none
+   of its own, because two hairlines in a 360px panel is a lot of furniture and
+   14px semibold against 11.5px monospace already reads as two things. The rule
+   belongs here rather than to the body, which is capped at a readable measure
+   and would stop the border short of the pane for no visible reason. */
+.detail-meta { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; align-items: baseline; font-size: 11px; margin-bottom: 12px; padding-bottom: 11px; border-bottom: 1px solid var(--border); }
+.meta-label { color: var(--subtle); font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+.meta-cells { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 12px; min-width: 0; }
+.meta-value { min-width: 0; overflow-wrap: anywhere; cursor: pointer; }
+.meta-value.mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10.5px; }
+.meta-value:hover { color: var(--blue); }
+.meta-value.copied { color: var(--green); }
+.meta-when { color: var(--subtext); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.detail-subject { font-size: 14px; font-weight: 600; line-height: 1.4; letter-spacing: -0.1px; }
 .detail-text { margin-top: 12px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11.5px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 88ch; }
 
 /* One scrollbar per pane above the breakpoint. A long message and a long file
@@ -888,13 +895,14 @@ document.getElementById('detail-panel').addEventListener('contextmenu', (e) => {
 
 // --- File click delegation (opens diff tab) ---
 document.getElementById('detail-panel').addEventListener('click', (e) => {
-  // Hash chips. The clipboard write is silent, so the chip says it happened.
-  const chip = e.target.closest('.chip.copyable');
-  if (chip) {
+  // Hash chips and metadata values. The clipboard write is silent, so the
+  // thing clicked says it happened.
+  const copySource = e.target.closest('[data-copy]');
+  if (copySource) {
     e.stopPropagation();
-    copyText(chip.dataset.copy);
-    chip.classList.add('copied');
-    setTimeout(() => chip.classList.remove('copied'), 900);
+    copyText(copySource.dataset.copy);
+    copySource.classList.add('copied');
+    setTimeout(() => copySource.classList.remove('copied'), 900);
     return;
   }
   // File-level action buttons (stage/unstage/discard/open)
@@ -2317,15 +2325,40 @@ function wireCommitControls() {
 }
 
 // --- Detail panel ---
+
+/* A value you can read in full and click to copy. Anything with a data-copy
+   attribute is handled by the panel's one click delegate. */
+function copyable(text, mono) {
+  return '<span class="meta-value' + (mono ? ' mono' : '') + '" data-copy="' + escHtml(text)
+    + '" title="Click to copy">' + escHtml(text) + '</span>';
+}
+
+/* The timezone is part of the answer: a commit stamped 09:13 means nothing
+   without knowing whose morning that was. Spelled out component by component
+   because dateStyle and timeStyle may not be combined with any other option —
+   asking for those plus timeZoneName is a TypeError, and behind a catch it
+   looks exactly like a locale that has no timezone name to give. */
+const WHEN_FORMAT = {
+  year: 'numeric', month: 'short', day: 'numeric',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+  timeZoneName: 'short',
+};
+function whenCell(ts) {
+  const when = new Date(ts * 1000);
+  return '<span class="meta-when">' + escHtml(when.toLocaleString(undefined, WHEN_FORMAT)) + '</span>';
+}
+
+function metaRow(label, cells) {
+  return '<div class="meta-label">' + escHtml(label) + '</div>'
+    + '<div class="meta-cells">' + cells.join('') + '</div>';
+}
+
 function renderDetailPanel(detail) {
   state._lastDetail = detail;
   const panel = document.getElementById('detail-panel');
   panel.classList.remove('hidden');
 
-  // Who and when, then the hashes as chips. The four labelled fields this
-  // replaced spent a line each on things nobody reads in full: an author's
-  // email beside their name, a 40-character hash, and a timestamp in a format
-  // that answers "which afternoon" rather than "how long ago".
+  // Who and when, then the hashes as chips: the glanceable half.
   let head = '<div class="detail-head">' + avatarHtml(detail.author, detail.authorEmail);
   head += '<div class="detail-who">';
   head += '<span class="detail-author" title="' + escHtml(detail.authorEmail) + '">' + escHtml(detail.author) + '</span>';
@@ -2341,12 +2374,28 @@ function renderDetailPanel(detail) {
   }
   head += '</div></div>';
 
+  // Then the full values. The chips above are what you glance at and copy; a
+  // hash you have to *read* is forty characters, and the two dates are only
+  // interesting when they disagree — which is exactly what a rebase or an
+  // amend does to them, so both are always here rather than folded into one.
+  let meta = '<div class="detail-meta">';
+  meta += metaRow('Commit', [copyable(detail.hash, true)]);
+  if (detail.parents.length > 0) {
+    meta += metaRow(detail.parents.length > 1 ? 'Parents' : 'Parent', detail.parents.map(h => copyable(h, true)));
+  }
+  meta += metaRow('Author', [copyable(detail.author + ' <' + detail.authorEmail + '>', false), whenCell(detail.authorDate)]);
+  const sameHand = detail.committer === detail.author && detail.committerEmail === detail.authorEmail;
+  if (!sameHand || detail.commitDate !== detail.authorDate) {
+    meta += metaRow('Committer', [copyable(detail.committer + ' <' + detail.committerEmail + '>', false), whenCell(detail.commitDate)]);
+  }
+  meta += '</div>';
+
   // The subject carries the weight; the body keeps the author's own wrapping.
   const message = String(detail.message || '');
   const firstBreak = message.indexOf('\\n');
   const subject = firstBreak === -1 ? message : message.slice(0, firstBreak);
   const body = firstBreak === -1 ? '' : message.slice(firstBreak + 1).replace(/^\\n+/, '').replace(/\\s+$/, '');
-  let left = '<div class="detail-msg"><div class="detail-subject">' + formatCommitMessage(subject) + '</div>';
+  let left = '<div class="detail-msg">' + meta + '<div class="detail-subject">' + formatCommitMessage(subject) + '</div>';
   if (body) left += '<div class="detail-text">' + formatCommitMessage(body) + '</div>';
   left += '</div>';
 
