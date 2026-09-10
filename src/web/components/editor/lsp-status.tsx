@@ -12,9 +12,17 @@
  * Nothing here installs anything. The command is shown to be copied and run
  * deliberately; an editor that reaches out to the network and installs a
  * binary because a file was opened is doing something the user did not ask for.
+ *
+ * The same argument is why the *off* state has a chip. A language server is a
+ * real process on the host — one was 854 MB resident — so PPM keeps it off
+ * until asked, and a feature that is off with nothing on screen to say so is
+ * the same invisible failure as a feature that is missing. So: one chip that
+ * says "off" and turns it on, and the switch to turn it back off in the panel
+ * the on-state chip opens.
  */
 import { useState } from "react";
-import { AlertTriangle, Check, Copy, Loader2, Zap } from "lucide-react";
+import { AlertTriangle, Check, Copy, Loader2, Zap, ZapOff } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { BottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { useIsMobile } from "@/hooks/use-is-mobile";
@@ -22,13 +30,35 @@ import type { LspDocumentStatus } from "@/lib/lsp/lsp-client";
 import type { LspDiagnostic } from "@/hooks/use-lsp";
 
 interface LspStatusProps {
+  /** The setting, for this device. False renders the chip that turns it on. */
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
   status: LspDocumentStatus | null;
   diagnostics: LspDiagnostic[];
 }
 
-export function LspStatus({ status, diagnostics }: LspStatusProps) {
+export function LspStatus({ enabled, onToggle, status, diagnostics }: LspStatusProps) {
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  if (!enabled) {
+    return (
+      <button
+        type="button"
+        onClick={() => onToggle(true)}
+        title={
+          "Language server: off. Turn it on for completions, hover, go to definition, "
+          + "rename and quick fix from a real server. It runs as a process on the host."
+        }
+        className={`flex items-center gap-1 rounded px-1.5 text-xs text-muted-foreground hover:bg-muted active:scale-95 transition-colors ${
+          isMobile ? "min-h-11" : "py-0.5"
+        }`}
+      >
+        <ZapOff className="size-3 shrink-0" />
+        <span>LSP off</span>
+      </button>
+    );
+  }
 
   if (!status) return null;
 
@@ -75,6 +105,7 @@ export function LspStatus({ status, diagnostics }: LspStatusProps) {
           errors={errors}
           warnings={warnings}
           isMobile={isMobile}
+          onToggle={onToggle}
           onClose={() => setOpen(false)}
         />
       )}
@@ -83,15 +114,18 @@ export function LspStatus({ status, diagnostics }: LspStatusProps) {
 }
 
 function LspStatusDetails({
-  status, errors, warnings, isMobile, onClose,
+  status, errors, warnings, isMobile, onToggle, onClose,
 }: {
   status: LspDocumentStatus;
   errors: number;
   warnings: number;
   isMobile: boolean;
+  onToggle: (enabled: boolean) => void;
   onClose: () => void;
 }) {
-  const body = <LspStatusBody status={status} errors={errors} warnings={warnings} isMobile={isMobile} />;
+  const body = (
+    <LspStatusBody status={status} errors={errors} warnings={warnings} isMobile={isMobile} onToggle={onToggle} />
+  );
 
   if (isMobile) {
     return (
@@ -112,12 +146,13 @@ function LspStatusDetails({
 }
 
 function LspStatusBody({
-  status, errors, warnings, isMobile,
+  status, errors, warnings, isMobile, onToggle,
 }: {
   status: LspDocumentStatus;
   errors: number;
   warnings: number;
   isMobile: boolean;
+  onToggle: (enabled: boolean) => void;
 }) {
   return (
     <div className="p-4 space-y-4 overflow-y-auto text-sm leading-relaxed">
@@ -160,6 +195,16 @@ function LspStatusBody({
           )}
         </>
       )}
+
+      {/* Symmetry with the chip that turned it on. The setting is per-device:
+          a phone has no business starting a server because a desktop did. */}
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+        <div>
+          <p className="text-xs font-medium">Language server</p>
+          <p className="text-[11px] text-muted-foreground">On for this device. Turning it off stops the process.</p>
+        </div>
+        <Switch checked onCheckedChange={(v) => onToggle(v)} />
+      </div>
     </div>
   );
 }

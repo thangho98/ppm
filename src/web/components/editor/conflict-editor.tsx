@@ -4,6 +4,7 @@ import type * as MonacoType from "monaco-editor";
 import { api, projectUrl } from "@/lib/api-client";
 import { useShallow } from "zustand/react/shallow";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useMonacoTheme } from "@/lib/use-monaco-theme";
 import { EDITOR_FONT_FAMILY } from "@/lib/editor-font";
 import { onHostResize } from "@/components/floating-window/pip/pip-resize-signal";
@@ -103,7 +104,11 @@ export function ConflictEditor({ metadata }: ConflictEditorProps) {
   const widgetsRef = useRef<MonacoType.editor.IContentWidget[]>([]);
   const decorationsRef = useRef<MonacoType.editor.IEditorDecorationsCollection | null>(null);
 
-  const { wordWrap } = useSettingsStore(useShallow((s) => ({ wordWrap: s.wordWrap })));
+  // A phone keeps its own wrap answer, and defaults to wrapping.
+  const { wordWrap, mobileWordWrap } = useSettingsStore(
+    useShallow((s) => ({ wordWrap: s.wordWrap, mobileWordWrap: s.mobileWordWrap })),
+  );
+  const wrapOn = useIsMobile() ? mobileWordWrap : wordWrap;
   const monacoTheme = useMonacoTheme();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -360,7 +365,7 @@ export function ConflictEditor({ metadata }: ConflictEditorProps) {
             options={{
               fontSize: 13,
               fontFamily: EDITOR_FONT_FAMILY,
-              wordWrap: wordWrap ? "on" : "off",
+              wordWrap: wrapOn ? "on" : "off",
               glyphMargin: true,
               readOnly: false,
               automaticLayout: true,
