@@ -26,6 +26,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useProjectStore } from "@/stores/project-store";
 import { useGitStatusStore } from "@/stores/git-status-store";
 import { useGitRepo } from "@/hooks/use-git-repo";
+import { FileIcon } from "@/lib/file-icons";
 import { useExtensionStore } from "@/stores/extension-store";
 import { GitWorktreePanel } from "./git-worktree-panel";
 import { HunkStageDialog, type HunkStageTarget } from "./hunk-stage-dialog";
@@ -921,6 +922,7 @@ function FileRow({
       >
         {file.status}
       </span>
+      <FileIcon name={file.path} className="size-3.5" />
       {/* Desktop: click opens diff */}
       <button
         type="button"

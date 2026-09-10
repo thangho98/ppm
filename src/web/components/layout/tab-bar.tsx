@@ -47,6 +47,7 @@ import type { Tab } from "@/stores/tab-store";
 import { downloadFile } from "@/lib/file-download";
 import { copyToClipboard } from "@/lib/clipboard";
 import { FileActions } from "@/components/explorer/file-actions";
+import { getTabIcon } from "@/lib/tab-type-icons";
 import {
   ContextMenu as BarContextMenu,
   ContextMenuContent as BarContextMenuContent,
@@ -54,25 +55,6 @@ import {
   ContextMenuTrigger as BarContextMenuTrigger,
   ContextMenuSeparator as BarContextMenuSeparator,
 } from "@/components/ui/context-menu";
-
-const TAB_ICONS: Record<TabType, React.ElementType> = {
-  terminal: Terminal,
-  chat: MessageSquare,
-  editor: FileCode,
-  database: Database,
-  sqlite: Database,
-  postgres: Database,
-  "git-diff": FileDiff,
-  settings: Settings,
-  extension: Puzzle,
-  "extension-webview": Puzzle,
-  "conflict-editor": FileDiff,
-  "system-monitor": Settings,
-  "git-log": GitCommitHorizontal,
-  "ai-resource": Sparkles,
-  group: Users,
-  problems: CircleX,
-};
 
 interface TabBarProps {
   panelId?: string;
@@ -371,7 +353,7 @@ export const TabBar = memo(function TabBar({ panelId }: TabBarProps) {
               key={tab.id}
               tab={tab}
               isActive={tab.id === activeTabId}
-              icon={TAB_ICONS[tab.type] || Puzzle}
+              icon={getTabIcon(tab)}
               showDropBefore={dropIndex === i}
               notificationType={notiType}
               notificationManual={notiManual}

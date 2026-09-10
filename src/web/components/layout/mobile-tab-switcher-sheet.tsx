@@ -10,7 +10,7 @@ import { BottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { usePanelStore } from "@/stores/panel-store";
 import { useNotificationStore, notificationColor } from "@/stores/notification-store";
 import { useStreamingStore } from "@/stores/streaming-store";
-import { getTabTypeIcon } from "@/lib/tab-type-icons";
+import { getTabIcon } from "@/lib/tab-type-icons";
 import { buildTabSwitcherGroups, type TabSortMode } from "./tab-switcher-groups";
 import type { Tab } from "@/stores/tab-store";
 import { cn } from "@/lib/utils";
@@ -148,7 +148,7 @@ export function MobileTabSwitcherSheet({
                 </div>
               )}
               {group.tabs.map((tab) => {
-                const Icon = getTabTypeIcon(tab.type);
+                const Icon = getTabIcon(tab);
                 const isActive = tab.id === activeTabId;
                 const sessionId = tab.type === "chat" ? (tab.metadata?.sessionId as string | undefined) : undefined;
                 const tagColor = sessionId ? sessionTagMap[sessionId]?.color : undefined;
