@@ -1,4 +1,4 @@
-import { FileCode } from "lucide-react";
+import { FileCode } from "@/lib/icons";
 
 /** Monaco language ids offered in the picker (built-in support only). */
 export const EDITOR_LANGUAGES: { id: string; label: string }[] = [

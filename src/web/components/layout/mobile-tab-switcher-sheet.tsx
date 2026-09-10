@@ -5,7 +5,7 @@
  * buildTabSwitcherGroups helper; this file is presentation + wiring only.
  */
 import { useState, useRef, useCallback } from "react";
-import { Search, X, Plus, Columns2 } from "lucide-react";
+import { Search, X, Plus, Columns2 } from "@/lib/icons";
 import { BottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { usePanelStore } from "@/stores/panel-store";
 import { useNotificationStore, notificationColor } from "@/stores/notification-store";

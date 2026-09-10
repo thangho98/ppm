@@ -16,7 +16,7 @@ import {
   GitBranch,
   Check,
   SquareDashedMousePointer,
-} from "lucide-react";
+} from "@/lib/icons";
 import { SidebarHeader } from "@/components/ui/sidebar-header";
 import { api, projectUrl } from "@/lib/api-client";
 import { basename } from "@/lib/utils";

@@ -8,7 +8,7 @@ import {
   ChevronRight,
   ChevronDown,
   Loader2,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useShallow } from "zustand/react/shallow";
 import { useFileStore, getVisiblePaths, absoluteProjectPath, type FileNode } from "@/stores/file-store";
 import { useProjectStore } from "@/stores/project-store";

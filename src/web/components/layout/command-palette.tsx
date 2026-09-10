@@ -22,7 +22,7 @@ import {
   CircleX,
   WrapText,
   Zap,
-} from "lucide-react";
+} from "@/lib/icons";
 import { openExplorer } from "@/components/os-explorer/open-explorer";
 import { openSettings } from "@/components/settings/open-settings";
 import { useTabStore, type TabType } from "@/stores/tab-store";

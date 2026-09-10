@@ -14,11 +14,11 @@ import {
   Sparkles,
   Users,
   CircleX,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useTabStore, type TabType } from "@/stores/tab-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { DOCK_PANEL_ID, visibleTabs } from "@/stores/panel-utils";
-import { PanelBottom, Grid2x2 } from "lucide-react";
+import { PanelBottom, Grid2x2 } from "@/lib/icons";
 import { useProjectStore } from "@/stores/project-store";
 import { useFileStore, type FileNode } from "@/stores/file-store";
 import { useCompareStore } from "@/stores/compare-store";
@@ -33,7 +33,7 @@ import {
   ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent,
   ContextMenuItem, ContextMenuSeparator,
 } from "@/components/ui/context-menu";
-import { Tag, Check, Columns2, Circle } from "lucide-react";
+import { Tag, Check, Columns2, Circle } from "@/lib/icons";
 import { basename } from "@/lib/utils";
 import { useNotificationStore, notificationColor } from "@/stores/notification-store";
 import { useStreamingStore } from "@/stores/streaming-store";

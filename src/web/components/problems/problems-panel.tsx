@@ -17,7 +17,7 @@
  * empty state rather than left for the user to work out.
  */
 import { useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, CircleX, Info, Lightbulb } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, CircleX, Info, Lightbulb } from "@/lib/icons";
 import { useShallow } from "zustand/react/shallow";
 import { usePanelStore } from "@/stores/panel-store";
 import { useProjectStore } from "@/stores/project-store";

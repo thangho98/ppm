@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "@/lib/icons";
 import { BottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { FeatureBadge } from "@/components/ui/feature-badge";
 import { cn } from "@/lib/utils";

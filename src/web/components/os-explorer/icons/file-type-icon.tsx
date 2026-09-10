@@ -9,7 +9,7 @@
  */
 
 import { createContext, useContext, type ComponentProps } from "react";
-import { FolderSymlink, HelpCircle } from "lucide-react";
+import { FolderSymlink, HelpCircle } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { FileIcon } from "@/lib/file-icons";
 import { FOLDER_ICON, FOLDER_OPEN_ICON, type SymbolIcon } from "./file-type-icon-map";

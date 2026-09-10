@@ -7,7 +7,7 @@
  * Same component names, same API — behavior adapts automatically.
  */
 import React, { useState, useRef, useCallback, type ReactNode } from "react";
-import { CircleIcon } from "lucide-react";
+import { CircleIcon } from "@/lib/icons";
 import * as Radix from "./context-menu";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { cn } from "@/lib/utils";

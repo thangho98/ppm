@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Search, CaseSensitive, ChevronRight, ChevronDown, X, Loader2, WholeWord, Regex, ReplaceAll } from "lucide-react";
+import { Search, CaseSensitive, ChevronRight, ChevronDown, X, Loader2, WholeWord, Regex, ReplaceAll } from "@/lib/icons";
 import { useShallow } from "zustand/react/shallow";
 import { useProjectStore } from "@/stores/project-store";
 import { useTabStore } from "@/stores/tab-store";

@@ -9,7 +9,7 @@ import { api } from "@/lib/api-client";
 import {
   Home, Monitor, FileText, FolderPlus, Trash2,
   Download, ChevronRight, ArrowLeft, Search, Loader2, Clock, Eye, EyeOff,
-} from "lucide-react";
+} from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { FileIcon } from "@/lib/file-icons";
 import { formatRelativeTime, formatSize } from "@/components/os-explorer/format-file-meta";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, FileText, Image as ImageIcon, Loader2, TerminalSquare, ChevronDown } from "lucide-react";
+import { X, FileText, Image as ImageIcon, Loader2, TerminalSquare, ChevronDown } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import type { ChatAttachment } from "./message-input";
 

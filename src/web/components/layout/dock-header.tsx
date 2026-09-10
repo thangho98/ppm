@@ -4,7 +4,7 @@
  * icon map; vertical positions collapse inactive pills + show a `+N` overflow
  * dropdown (see resolveDockPills). Position dropdown persists per-user (settings).
  */
-import { PanelLeft, PanelBottom, PanelRight, Maximize2, Minimize2, ChevronDown, Plus, Check, X } from "lucide-react";
+import { PanelLeft, PanelBottom, PanelRight, Maximize2, Minimize2, ChevronDown, Plus, Check, X } from "@/lib/icons";
 import { usePanelStore } from "@/stores/panel-store";
 import { useProjectStore } from "@/stores/project-store";
 import { useSettingsStore, type DockPosition } from "@/stores/settings-store";

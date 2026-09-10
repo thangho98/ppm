@@ -14,7 +14,7 @@ import { useIsMobile, isMobileDevice } from "@/hooks/use-is-mobile";
 import type { EditorLspState } from "./editor-language-service";
 import { EDITOR_FONT_FAMILY, EDITOR_FONT_LIGATURES, EDITOR_FONT_SIZE } from "@/lib/editor-font";
 import { LspStatus } from "./lsp-status";
-import { Loader2, FileWarning, Play, Database, ExternalLink, X, GripHorizontal, ShieldCheck, ShieldOff } from "lucide-react";
+import { Loader2, FileWarning, Play, Database, ExternalLink, X, GripHorizontal, ShieldCheck, ShieldOff } from "@/lib/icons";
 import { EditorBreadcrumb } from "./editor-breadcrumb";
 import { EditorToolbar } from "./editor-toolbar";
 import { EditorLanguagePicker } from "./editor-language-picker";

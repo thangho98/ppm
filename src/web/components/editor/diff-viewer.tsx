@@ -7,7 +7,7 @@ import { useMonacoTheme } from "@/lib/use-monaco-theme";
 import { EDITOR_FONT_FAMILY, EDITOR_FONT_LIGATURES, EDITOR_FONT_SIZE } from "@/lib/editor-font";
 import { useGitRepo } from "@/hooks/use-git-repo";
 import { onHostResize } from "@/components/floating-window/pip/pip-resize-signal";
-import { Loader2, FileCode, WrapText, UserRound } from "lucide-react";
+import { Loader2, FileCode, WrapText, UserRound } from "@/lib/icons";
 import { useInlineBlame } from "@/hooks/use-inline-blame";
 
 function getMonacoLanguage(filename: string): string {

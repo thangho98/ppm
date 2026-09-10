@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from "react";
-import { X, Check, Plus, Settings, ChevronUp, ChevronDown, Pencil, Trash2, Palette, ArrowLeft, Image as ImageIcon, Search, ExternalLink, Copy } from "lucide-react";
+import { X, Check, Plus, Settings, ChevronUp, ChevronDown, Pencil, Trash2, Palette, ArrowLeft, Image as ImageIcon, Search, ExternalLink, Copy } from "@/lib/icons";
 import { useShallow } from "zustand/react/shallow";
 import { useProjectStore, resolveOrder, loadRecentTimes } from "@/stores/project-store";
 import { useSettingsStore } from "@/stores/settings-store";

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Download } from "lucide-react";
+import { X, Download } from "@/lib/icons";
 import type { Tab, TabType } from "@/stores/tab-store";
 import { cn } from "@/lib/utils";
 import { isDarkColor } from "@/lib/color-utils";

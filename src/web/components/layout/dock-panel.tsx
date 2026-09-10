@@ -8,7 +8,7 @@
  * Close calls setDockVisible(false); real kill = close-from-dock / shell exit / idle-grace.
  */
 import { useCallback } from "react";
-import { X, Terminal, Plus, Maximize2, Minimize2 } from "lucide-react";
+import { X, Terminal, Plus, Maximize2, Minimize2 } from "@/lib/icons";
 import { usePanelStore } from "@/stores/panel-store";
 import { DOCK_PANEL_ID } from "@/stores/panel-utils";
 import { useProjectStore } from "@/stores/project-store";

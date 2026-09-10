@@ -8,7 +8,7 @@ import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useMonacoTheme } from "@/lib/use-monaco-theme";
 import { EDITOR_FONT_FAMILY, EDITOR_FONT_LIGATURES, EDITOR_FONT_SIZE } from "@/lib/editor-font";
 import { onHostResize } from "@/components/floating-window/pip/pip-resize-signal";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/lib/icons";
 
 function getMonacoLanguage(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";

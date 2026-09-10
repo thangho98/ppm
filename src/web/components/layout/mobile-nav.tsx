@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Terminal, Menu, X, Layers, Plus,
   Copy, Download, Pencil, Trash2, Columns2, Circle, Tag, Check, XSquare, ChevronsRight, ChevronUp,
-} from "lucide-react";
+} from "@/lib/icons";
 import { usePanelStore } from "@/stores/panel-store";
 import { useShallow } from "zustand/react/shallow";
 import { useProjectStore, resolveOrder } from "@/stores/project-store";

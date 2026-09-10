@@ -9,7 +9,7 @@ import {
   Terminal, MessageSquare, FileCode, Database, FileDiff, Settings, Puzzle, Sparkles, Users, CircleX,
   GitCommitHorizontal,
   type LucideIcon,
-} from "lucide-react";
+} from "@/lib/icons";
 import type { ElementType } from "react";
 import type { TabType } from "@/stores/tab-store";
 import { fileIconElement } from "@/lib/file-icons";
