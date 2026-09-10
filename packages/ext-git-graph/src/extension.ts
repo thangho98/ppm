@@ -413,25 +413,14 @@ async function handleRequestCommits(
 ): Promise<void> {
   const { parseGitLog } = await import("./git-log-parser.ts");
   const settings = context ? getSettings(context) : DEFAULT_SETTINGS;
-  const orderFlag = settings.commitOrdering === "date" ? "--date-order"
-    : settings.commitOrdering === "author-date" ? "--author-date-order"
-    : "--topo-order";
-  const args = [
-    "log",
-    `--format=%H%n%P%n%an%n%ae%n%at%n%cn%n%ce%n%ct%n%D%n%s%n<END_COMMIT>`,
-    orderFlag,
-    `-n`, String(maxCommits),
-  ];
-  if (settings.firstParentOnly) args.push("--first-parent");
-  if (skip > 0) args.push(`--skip=${skip}`);
-  if (branch && branch !== "all") {
-    args.push(branch);
-  } else {
-    // Exclude stash refs — stashes are loaded separately via handleStashes
-    args.push("--exclude=refs/stash", "--all");
-  }
+  const window = { maxCommits, skip, branch, firstParentOnly: settings.firstParentOnly,
+    ordering: settings.commitOrdering };
 
-  const result = await spawnGit(vscode, args, projectPath);
+  const result = await spawnGit(
+    vscode,
+    logArgs(window, `--format=%H%n%P%n%an%n%ae%n%at%n%cn%n%ce%n%ct%n%D%n%s%n<END_COMMIT>`),
+    projectPath,
+  );
   const commits = parseGitLog(result.stdout);
 
   await panel.webview.postMessage({
@@ -439,6 +428,51 @@ async function handleRequestCommits(
     data: commits,
     append: skip > 0,
   });
+
+  // Lines changed, in a second pass. Asking the first log for --shortstat makes
+  // git diff every commit in the window, and that cost would land before the
+  // graph could be drawn at all; this way the numbers fill into their column a
+  // moment after the rows are already on screen.
+  try {
+    const { parseShortstat } = await import("./shortstat-parser.ts");
+    const stats = await spawnGit(vscode, logArgs(window, "--format=%H", "--shortstat"), projectPath);
+    await panel.webview.postMessage({
+      command: "loadCommitStats",
+      data: parseShortstat(stats.stdout),
+    });
+  } catch {
+    // A column of numbers is not worth an error banner over the graph.
+  }
+}
+
+interface LogWindow {
+  maxCommits: number;
+  skip: number;
+  branch?: string;
+  firstParentOnly?: boolean;
+  ordering?: string;
+}
+
+/**
+ * The commit window, as git arguments.
+ *
+ * Shared so the stats pass sees exactly the same commits as the graph: the two
+ * are joined by hash, so a different window would silently leave rows blank.
+ */
+function logArgs(window: LogWindow, ...format: string[]): string[] {
+  const orderFlag = window.ordering === "date" ? "--date-order"
+    : window.ordering === "author-date" ? "--author-date-order"
+    : "--topo-order";
+  const args = ["log", ...format, orderFlag, "-n", String(window.maxCommits)];
+  if (window.firstParentOnly) args.push("--first-parent");
+  if (window.skip > 0) args.push(`--skip=${window.skip}`);
+  if (window.branch && window.branch !== "all") {
+    args.push(window.branch);
+  } else {
+    // Exclude stash refs — stashes are loaded separately via handleStashes
+    args.push("--exclude=refs/stash", "--all");
+  }
+  return args;
 }
 
 async function handleCommitDetails(

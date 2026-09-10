@@ -193,18 +193,74 @@ describe("webview-html: row states", () => {
     expect(css).not.toContain("#commit-list .commit-row:nth-child(even)");
   });
 
-  it("declares banding before hover and selection", () => {
+  it("declares banding before hover and selection, and selection after a search match", () => {
     const banding = css.indexOf(".commit-row:nth-child(even) {");
     const hover = css.indexOf(".commit-row:hover {");
+    const match = css.indexOf(".commit-row.search-match {");
     const selected = css.indexOf(".commit-row.selected {");
     expect(banding).toBeGreaterThan(-1);
     expect(banding).toBeLessThan(hover);
     expect(banding).toBeLessThan(selected);
+    // The row you clicked should look selected even when it is also a match.
+    expect(match).toBeLessThan(selected);
   });
 
   it("puts the phone layout after the coarse-pointer rules it has to beat", () => {
     // The coarse block keeps all six columns and scrolls them sideways, which
     // is right for a tablet and wrong for a phone.
     expect(css.indexOf("@media (pointer: coarse)")).toBeLessThan(css.indexOf("@media (max-width: 640px)"));
+  });
+});
+
+describe("webview-html: columns", () => {
+  const html = getWebviewHtml();
+
+  /** The order the static header row declares its cells in. */
+  function headerOrder(): string[] {
+    const header = html.slice(html.indexOf('id="graph-header"'), html.indexOf('id="commit-list-wrapper"'));
+    return [...header.matchAll(/class="(col-[a-z]+)"/g)].map((m) => m[1]!);
+  }
+
+  /** The order the script appends them to a row in. */
+  function rowOrder(): string[] {
+    const build = html.slice(html.indexOf("row.appendChild(refsCol)"), html.indexOf("makeRowDropTarget(row, commit)"));
+    const named: Record<string, string> = {
+      refsCol: "col-refs", graphCol: "col-graph", msgCol: "col-message",
+      changesCol: "col-changes", authorCol: "col-author", dateCol: "col-date", hashCol: "col-hash",
+    };
+    return [...build.matchAll(/row\.appendChild\((\w+)\)/g)].map((m) => named[m[1]!] ?? m[1]!);
+  }
+
+  it("builds the row in the order the header labels it", () => {
+    // Two places declare this order — a static header and a JS builder — so a
+    // column added to one and not the other puts every label over the wrong
+    // cell, and nothing throws.
+    expect(rowOrder()).toEqual(headerOrder());
+  });
+
+  it("has a Changes column between the message and the author", () => {
+    expect(headerOrder()).toEqual([
+      "col-refs", "col-graph", "col-message", "col-changes", "col-author", "col-date", "col-hash",
+    ]);
+  });
+
+  it("puts the scroll markers beside the scroller rather than inside it", () => {
+    // Inside #graph-container they would scroll away with the rows, which is
+    // the opposite of an overview.
+    const area = html.slice(html.indexOf('id="graph-area"'), html.indexOf('id="detail-panel"'));
+    expect(area.indexOf('id="graph-container"')).toBeGreaterThan(-1);
+    expect(area.indexOf('id="scroll-markers"')).toBeGreaterThan(area.indexOf('id="graph-container"'));
+    const markersInsideScroller = html.slice(
+      html.indexOf('id="graph-container"'), html.indexOf('id="loading"'),
+    ).includes("scroll-markers");
+    expect(markersInsideScroller).toBe(false);
+  });
+
+  it("fills the stats in place instead of rebuilding every row", () => {
+    // A rebuild would discard the scroll position and the open detail panel,
+    // and the numbers arrive a moment after the rows are already on screen.
+    const handler = html.slice(html.indexOf("case 'loadCommitStats':"), html.indexOf("case 'commitDetails':"));
+    expect(handler).toContain("applyCommitStats()");
+    expect(handler).not.toContain("renderCommitList()");
   });
 });

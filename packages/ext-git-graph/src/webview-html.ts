@@ -82,11 +82,13 @@ ${getStyles()}
       <button id="find-close" title="Close">&times;</button>
     </div>
     <div id="search-results" class="search-results hidden"></div>
+    <div id="graph-area">
     <div id="graph-container">
       <div id="graph-header" class="commit-row header-row">
         <div class="col-refs">Branch / Tag</div>
         <div class="col-graph">Graph<div class="graph-resize-handle" id="graph-resize-handle"></div></div>
         <div class="col-message">Message</div>
+        <div class="col-changes">Changes</div>
         <div class="col-author">Author</div>
         <div class="col-date">Date</div>
         <div class="col-hash">Hash</div>
@@ -96,6 +98,8 @@ ${getStyles()}
         <div id="commit-list"></div>
       </div>
       <div id="loading" class="loading hidden">Loading...</div>
+    </div>
+      <div id="scroll-markers" aria-hidden="true"></div>
     </div>
     <div id="detail-panel" class="detail-panel hidden"></div>
     <div id="settings-panel" class="settings-panel">
@@ -273,8 +277,19 @@ button:active { background: var(--surface); }
 #find-count { font-size: 10px; color: var(--subtext); min-width: 50px; }
 .hidden { display: none !important; }
 
-/* Graph container */
-#graph-container { flex: 1; overflow-y: auto; overflow-x: hidden; }
+/* Graph container. The scroller is wrapped, because the scroll markers have to
+   sit beside it in a box that does not scroll with the rows. */
+#graph-area { position: relative; flex: 1; min-height: 0; display: flex; }
+#graph-container { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; }
+/* Where in the whole history the things worth scrolling to are: the checked-out
+   commit, the selected row, and every search match. Over the scrollbar, like
+   VS Code's own overview ruler, and never clickable — dragging the scrollbar
+   underneath has to keep working. */
+#scroll-markers { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; pointer-events: none; z-index: 3; }
+.scroll-marker { position: absolute; right: 0; width: 5px; height: 2px; border-radius: 1px; transform: translateY(-50%); }
+.sm-search { background: var(--yellow); }
+.sm-head { background: var(--green); height: 3px; }
+.sm-selected { background: var(--blue); height: 3px; }
 .commit-row { display: flex; align-items: center; cursor: pointer; height: 30px; padding: 0 6px; font-size: 12px; box-sizing: border-box; overflow: hidden; }
 /* Banding, before the hover and selected rules on purpose: it has the same
    specificity as they do, so source order is what decides the winner. Do not
@@ -283,10 +298,16 @@ button:active { background: var(--surface); }
    .commit-row too but is the first child of its own parent, so it is odd. */
 .commit-row:nth-child(even) { background: color-mix(in srgb, var(--text) 3.5%, transparent); }
 .commit-row:hover { background: var(--surface-hover); }
-.commit-row.selected { background: var(--selected); box-shadow: inset 2px 0 0 var(--blue); }
 .commit-row.header-row { background: var(--surface); cursor: default; font-weight: 600; font-size: 10px; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--border); height: 24px; }
 .commit-row.header-row .col-message::before { display: none; }
-.commit-row.search-match { background: rgba(234, 179, 8, 0.15); }
+/* A tint and a bar, not a flood: with fifteen rows on screen a 15% yellow
+   wash over half of them buried the list it was meant to annotate. The
+   scroll markers carry where the rest of the matches are. */
+.commit-row.search-match { background: color-mix(in srgb, var(--yellow) 9%, transparent); box-shadow: inset 2px 0 0 var(--yellow); }
+/* After the match rule on purpose: the row you clicked should look selected,
+   even when it is also a match. Which of the two it is stays visible in the
+   find bar's count and in the scroll markers. */
+.commit-row.selected { background: var(--selected); box-shadow: inset 2px 0 0 var(--blue); }
 .commit-row.virtual { opacity: 0.85; font-style: italic; }
 .commit-row.virtual .col-message { color: var(--subtext); }
 .commit-row.stash-row { opacity: 0.75; }
@@ -311,6 +332,11 @@ button:active { background: var(--surface); }
 /* Author, date and hash again, for the phone layout that has no room for their
    columns. Hidden until that layout asks for it. */
 .msg-meta { display: none; }
+/* Lines added and removed. Tabular figures so the columns of digits line up
+   down the list rather than jittering with the glyph widths. */
+.col-changes { width: 84px; min-width: 84px; flex-shrink: 0; font-size: 11px; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 5px; }
+.col-changes .ch-add { color: var(--green); }
+.col-changes .ch-del { color: var(--red); }
 .col-author { width: 130px; min-width: 130px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--subtext); font-size: 11px; }
 .avatar { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 700; color: #fff; flex-shrink: 0; letter-spacing: -0.2px; }
 
@@ -472,7 +498,8 @@ button:active { background: var(--surface); }
   #toolbar { order: 10; border-bottom: none; border-top: 1px solid var(--border); padding: 2px 6px; }
   #toolbar button { font-size: 10px; }
   .branch-trigger { font-size: 10px !important; padding: 2px 6px !important; }
-  #graph-container { order: 1; overflow-x: auto; overflow-y: auto; }
+  #graph-area { order: 1; }
+  #graph-container { overflow-x: auto; overflow-y: auto; }
   #find-bar { order: 0; }
   #status-bar { order: 9; }
   /* Enough for every column including the branch one, so a tablet scrolls the
@@ -494,7 +521,7 @@ button:active { background: var(--surface); }
   #commit-list-wrapper, #graph-header { min-width: 0; }
   .commit-row { height: 44px; }
   .commit-row.header-row { height: 24px; }
-  .col-refs, .col-author, .col-date, .col-hash { display: none; }
+  .col-refs, .col-changes, .col-author, .col-date, .col-hash { display: none; }
   .col-message { gap: 1px; }
   .msg-meta { display: block; font-size: 10px; color: var(--subtext); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .col-message .ref-badge { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
@@ -540,6 +567,8 @@ const state = {
   loading: false,
   uncommitted: null,
   searchMatches: [],
+  /** hash -> {files, insertions, deletions}; arrives after the commits. */
+  stats: {},
   searchIndex: -1,
   settings: { ...DEFAULT_SETTINGS },
   userDetails: { name: '', email: '' },
@@ -636,6 +665,10 @@ window.addEventListener('message', (event) => {
       updateStatus();
       state.loading = false;
       document.getElementById('loading').classList.add('hidden');
+      break;
+    case 'loadCommitStats':
+      Object.assign(state.stats, msg.data);
+      applyCommitStats();
       break;
     case 'commitDetails':
       renderDetailPanel(msg.data);
@@ -1865,6 +1898,10 @@ function renderCommitList() {
       }
     });
 
+    const changesCol = document.createElement('div');
+    changesCol.className = 'col-changes';
+    if (!isVirtual && !isStash) fillChangesCell(changesCol, state.stats[commit.hash]);
+
     const authorCol = document.createElement('div');
     authorCol.className = 'col-author';
     if (isVirtual || isStash) {
@@ -1890,6 +1927,7 @@ function renderCommitList() {
 
     row.appendChild(graphCol);
     row.appendChild(msgCol);
+    row.appendChild(changesCol);
     row.appendChild(authorCol);
     row.appendChild(dateCol);
     row.appendChild(hashCol);
@@ -1921,6 +1959,68 @@ function renderCommitList() {
   });
 
   graphRender(-1);
+  renderScrollMarkers();
+}
+
+/*
+ * A merge commit has no diffstat — that is git's default, not a failure — so an
+ * absent entry leaves the cell empty rather than claiming it changed nothing.
+ */
+function fillChangesCell(cell, stat) {
+  cell.textContent = '';
+  if (!stat) return;
+  if (stat.insertions > 0) {
+    const add = document.createElement('span');
+    add.className = 'ch-add';
+    add.textContent = '+' + stat.insertions;
+    cell.appendChild(add);
+  }
+  if (stat.deletions > 0) {
+    const del = document.createElement('span');
+    del.className = 'ch-del';
+    del.textContent = '-' + stat.deletions;
+    cell.appendChild(del);
+  }
+  cell.title = stat.files + (stat.files === 1 ? ' file changed' : ' files changed');
+}
+
+/** Fill the column in place: the rows are already drawn, and rebuilding them
+ *  would throw away the scroll position and the open detail panel. */
+function applyCommitStats() {
+  document.querySelectorAll('#commit-list .commit-row').forEach((row) => {
+    const cell = row.querySelector('.col-changes');
+    const hash = row.dataset.hash;
+    if (cell && hash && hash !== 'uncommitted') fillChangesCell(cell, state.stats[hash]);
+  });
+}
+
+/*
+ * One tick per interesting row, positioned by its index in the whole loaded
+ * history rather than by pixels — the rows are a uniform height, so the two
+ * agree, and an index needs no measuring and survives a resize.
+ *
+ * Search matches are drawn first so that the checked-out and selected ticks sit
+ * on top of them when they land on the same row.
+ */
+function renderScrollMarkers() {
+  const host = document.getElementById('scroll-markers');
+  if (!host) return;
+  host.innerHTML = '';
+  const commits = getDisplayCommits();
+  if (commits.length === 0) return;
+
+  const mark = (idx, kind) => {
+    const el = document.createElement('div');
+    el.className = 'scroll-marker sm-' + kind;
+    el.style.top = ((idx + 0.5) / commits.length * 100) + '%';
+    host.appendChild(el);
+  };
+
+  for (let i = 0; i < state.searchMatches.length; i++) mark(state.searchMatches[i], 'search');
+  for (let i = 0; i < commits.length; i++) {
+    if (commits[i].hash === state.head) mark(i, 'head');
+    if (commits[i].hash === state.selectedCommit) mark(i, 'selected');
+  }
 }
 
 function selectCommit(hash) {
@@ -1931,6 +2031,7 @@ function selectCommit(hash) {
     state.selectedCommit = null;
     state.expandedCommit = null;
     document.getElementById('detail-panel').classList.add('hidden');
+    renderScrollMarkers();
     return;
   }
 
@@ -1938,6 +2039,7 @@ function selectCommit(hash) {
   state.expandedCommit = hash;
   const row = document.querySelector('[data-hash="' + CSS.escape(hash) + '"]');
   if (row) row.classList.add('selected');
+  renderScrollMarkers();
 
   if (hash === 'uncommitted') {
     renderUncommittedDetail();
@@ -2619,6 +2721,7 @@ function doSearch(query) {
     if (match) { state.searchMatches.push(idx); row.classList.add('search-match'); }
   });
   document.getElementById('find-count').textContent = state.searchMatches.length + ' match(es)';
+  renderScrollMarkers();
   if (state.searchMatches.length > 0) navigateSearch(0);
 }
 
@@ -2639,6 +2742,7 @@ function clearSearch() {
   state.searchIndex = -1;
   findInput.value = '';
   document.getElementById('find-count').textContent = '';
+  renderScrollMarkers();
 }
 
 function clearSearchHighlights() {
