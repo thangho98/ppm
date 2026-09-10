@@ -332,10 +332,45 @@ describe("getWebviewHtml commit details", () => {
     expect(render).not.toContain("Commit Details");
   });
 
+  /** The block that turns the panel into two panes. */
+  const wide = css.slice(css.indexOf("@media (min-width: 900px)"), css.indexOf("\n}", css.indexOf("@media (min-width: 900px)")));
+
   it("puts the file list beside the message when there is room", () => {
     // The message is hard-wrapped by whoever wrote it, so on a wide panel it
     // fills half the width and the rest of the row is empty.
-    expect(css).toMatch(/@media \(min-width: 900px\) \{\s*\.detail-grid\.has-files/);
+    expect(wide).toMatch(/\.detail-grid\.has-files \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax/);
+  });
+
+  it("gives each pane its own scrollbar, and takes the panel's away", () => {
+    // A long message and a long file list are two lists of unrelated length.
+    // Scrolling them as one means reaching the twentieth file by pushing the
+    // message off the screen — and the panel keeping its own scrollbar as well
+    // would nest a scroller inside a scroller.
+    expect(wide).toMatch(/\.detail-panel\.split \{[^}]*overflow: hidden/);
+    expect(wide).toMatch(/\.detail-panel\.split \.detail-grid > \* \{[^}]*overflow-y: auto/);
+    const base = css.slice(css.indexOf(".detail-panel {"), css.indexOf(".detail-panel h3"));
+    expect(base).toContain("overflow-y: auto");
+  });
+
+  it("leaves no strip above the files header for rows to scroll through", () => {
+    // A sticky element sits at its container's *padding* edge, so the pane's
+    // own padding-top becomes a gap above the header that rows pass through in
+    // full view rather than under. The header carries that space instead.
+    expect(wide).toMatch(/\.detail-panel\.split \.detail-files \{[^}]*padding-top: 0/);
+    expect(wide).toMatch(/\.detail-panel\.split \.files-head \{[^}]*position: sticky[^}]*padding:/);
+  });
+
+  it("keeps the rule under the subject off a commit with no body", () => {
+    // The body is capped at a readable measure, which is why the rule belongs
+    // to the subject — and a subject with nothing under it should not wear one.
+    expect(css).toContain(".detail-subject:only-child { padding-bottom: 0; border-bottom: none; }");
+  });
+
+  it("only splits when a commit is showing, and hands the scrollbar back", () => {
+    // Uncommitted changes are one column with a commit box at the bottom; left
+    // split, the panel would clip them with no way to scroll to it.
+    expect(render).toContain("panel.classList.toggle('split', !!right)");
+    expect(uncommitted).toContain("panel.classList.remove('split')");
   });
 
   it("only splits the columns when there is a file list to put in one", () => {

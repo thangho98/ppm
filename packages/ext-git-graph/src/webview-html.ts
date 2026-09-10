@@ -411,13 +411,13 @@ button:active { background: var(--surface); }
 .commit-row.graph-hover { background: var(--surface-hover); }
 
 /* Detail panel. The panel itself carries no padding, because the header is a
-   full-width sticky bar; anything else written into the panel wraps itself in
-   .detail-pad. */
+   full-width sticky bar and each pane below it pads itself; anything else
+   written into the panel wraps itself in .detail-pad. */
 .detail-panel { border-top: 1px solid var(--border2); background: var(--surface); max-height: 40vh; overflow-y: auto; flex-shrink: 0; }
 .detail-panel h3 { font-size: 13px; margin-bottom: 6px; }
 .detail-pad { padding: 8px 12px; }
 
-.detail-head { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 2; }
+.detail-head { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 2; flex-shrink: 0; }
 .detail-head .avatar { width: 20px; height: 20px; font-size: 8px; }
 .detail-who { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .detail-author { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -433,16 +433,39 @@ button:active { background: var(--surface); }
 
 /* Two columns when there is room. A commit message is hard-wrapped by whoever
    wrote it, so on a wide panel it fills half the width and the rest of the row
-   is empty; the file list goes there instead of below the fold. */
-.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px 20px; padding: 10px 12px 12px; align-items: start; }
+   is empty; the file list goes there instead of below the fold. Each pane pads
+   itself, because above the breakpoint each one also scrolls itself. */
+.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+.detail-msg { padding: 12px 16px 16px; min-width: 0; }
+.detail-files { padding: 8px 12px 12px; min-width: 0; }
+/* A rule and some air under the subject: the body is a different kind of text
+   and used to start one line below it in the same block. The rule belongs to
+   the subject rather than the body, because the body is capped at a readable
+   measure and a border on it stops short of the pane for no visible reason. */
+.detail-subject { font-size: 14px; font-weight: 600; line-height: 1.4; letter-spacing: -0.1px; padding-bottom: 11px; border-bottom: 1px solid var(--border); }
+/* A one-line commit has no body, and a rule under the subject with nothing
+   below it is just a line. */
+.detail-subject:only-child { padding-bottom: 0; border-bottom: none; }
+.detail-text { margin-top: 12px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11.5px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 88ch; }
+
+/* One scrollbar per pane above the breakpoint. A long message and a long file
+   list are two lists of unrelated length, and scrolling the pair as one means
+   reaching the twentieth file by pushing the message off the screen. Below it
+   they are stacked, and two scrollers inside one short panel is a trap for a
+   thumb — so there the panel scrolls as a whole, as it always did. */
 @media (min-width: 900px) {
-  .detail-grid.has-files { grid-template-columns: minmax(0, 1fr) minmax(240px, 38%); }
+  .detail-panel.split { display: flex; flex-direction: column; overflow: hidden; }
+  .detail-grid.has-files { grid-template-columns: minmax(0, 1fr) minmax(260px, 38%); }
+  .detail-panel.split .detail-grid { flex: 1 1 auto; min-height: 0; }
+  .detail-panel.split .detail-grid > * { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .detail-panel.split .detail-files { border-left: 1px solid var(--border); padding-top: 0; }
+  /* The pane's own top padding would sit above a sticky header, leaving a strip
+     for rows to scroll through; the header carries that space instead. */
+  .detail-panel.split .files-head { position: sticky; top: 0; background: var(--surface); z-index: 1; padding: 8px 0 3px; }
 }
-.detail-subject { font-size: 13px; font-weight: 600; line-height: 1.45; }
-.detail-text { margin-top: 8px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .file-list { margin-top: 8px; min-width: 0; }
-.detail-grid .file-list { margin-top: 0; }
+.detail-files .file-list { margin-top: 0; }
 .files-head { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--subtext); border-bottom: 1px solid var(--border); margin-bottom: 3px; }
 .files-head .file-view-toggle { margin-bottom: 0; }
 .files-total { margin-left: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
@@ -2227,6 +2250,7 @@ function fileViewToggleHtml() {
 function renderUncommittedDetail() {
   const panel = document.getElementById('detail-panel');
   panel.classList.remove('hidden');
+  panel.classList.remove('split');
   const u = state.uncommitted;
   if (!u) { panel.classList.add('hidden'); return; }
   let html = '<div class="detail-pad"><h3>Uncommitted Changes</h3>';
@@ -2322,7 +2346,7 @@ function renderDetailPanel(detail) {
   const firstBreak = message.indexOf('\\n');
   const subject = firstBreak === -1 ? message : message.slice(0, firstBreak);
   const body = firstBreak === -1 ? '' : message.slice(firstBreak + 1).replace(/^\\n+/, '').replace(/\\s+$/, '');
-  let left = '<div><div class="detail-subject">' + formatCommitMessage(subject) + '</div>';
+  let left = '<div class="detail-msg"><div class="detail-subject">' + formatCommitMessage(subject) + '</div>';
   if (body) left += '<div class="detail-text">' + formatCommitMessage(body) + '</div>';
   left += '</div>';
 
@@ -2330,16 +2354,19 @@ function renderDetailPanel(detail) {
   if (detail.fileChanges && detail.fileChanges.length > 0) {
     let added = 0, removed = 0;
     for (const f of detail.fileChanges) { added += f.additions || 0; removed += f.deletions || 0; }
-    right = '<div class="file-list"><div class="files-head">'
+    right = '<div class="detail-files"><div class="file-list"><div class="files-head">'
       + '<span>' + detail.fileChanges.length + (detail.fileChanges.length === 1 ? ' file' : ' files') + ' changed</span>'
       + '<span class="files-total">'
       + (added > 0 ? '<span class="add">+' + added + '</span> ' : '')
       + (removed > 0 ? '<span class="del">-' + removed + '</span>' : '')
       + '</span>' + fileViewToggleHtml() + '</div>'
       + renderFileListHtml(detail.fileChanges, detail.hash, detail.parents[0] || '')
-      + '</div>';
+      + '</div></div>';
   }
 
+  // The split panes each own a scrollbar, which means the panel must stop
+  // owning one — and must give it back for any other view written into it.
+  panel.classList.toggle('split', !!right);
   panel.innerHTML = head + '<div class="detail-grid' + (right ? ' has-files' : '') + '">' + left + right + '</div>';
 }
 
