@@ -353,6 +353,20 @@ export function useTerminal(
       // devicon glyphs only a patched Nerd Font has.
       fontFamily: TERMINAL_FONT_FAMILY,
       theme: currentXtermTheme(),
+      // The two ends of an ANSI palette collapse into the background, and a
+      // prompt cannot know which way round the terminal is. On PPM's light
+      // themes `white` is #e9edf5 against a #f3f7ff background — 1.09:1, i.e.
+      // invisible — and on the dark ones `black` is 1.10:1. oh-my-posh writes
+      // its second prompt line in plain SGR 37, which is correct on the dark
+      // terminal it was designed for and disappeared entirely here.
+      //
+      // Repainting those palette slots is the wrong fix: the same `white` is
+      // also the text *on* a coloured powerline segment, where it is right.
+      // xterm adjusts the foreground per cell against that cell's real
+      // background instead, which leaves every segment untouched and only
+      // rescues the text that had nothing behind it. 4.5 is WCAG AA, and the
+      // value VS Code ships as its own default.
+      minimumContrastRatio: 4.5,
     });
 
     const fitAddon = new FitAddon();
