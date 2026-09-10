@@ -45,8 +45,11 @@ describe("a long-press is disarmed when the browser takes the gesture", () => {
     // Guards the guard: a rename of the handler prop would otherwise make this
     // suite pass by matching nothing at all.
     const sites = pressSites().map((s) => s.file);
-    expect(sites.length).toBeGreaterThanOrEqual(7);
-    expect(sites).toContain("components/git/git-status-panel.tsx");
+    // Six, down from seven: the git panel used to hand-roll its own press and
+    // now goes through the adaptive menu, which holds one for it. That is a
+    // press site *removed*, not one that stopped being checked — and
+    // `git-panel-context-menu.test.ts` is what keeps it from coming back.
+    expect(sites.length).toBeGreaterThanOrEqual(6);
     expect(sites).toContain("components/ui/adaptive-context-menu.tsx");
     expect(sites).toContain("components/os-explorer/use-coarse-long-press.ts");
   });
@@ -61,8 +64,9 @@ describe("a long-press is disarmed when the browser takes the gesture", () => {
   it("clears the timer when the element goes away mid-press", () => {
     // The git panel refreshes its file list on every save, so a row can unmount
     // under a finger; the timer would then fire for a row that no longer exists.
+    // That press now lives in the adaptive menu, which is why it is the entry
+    // that has to carry the cleanup.
     const guarded = [
-      "components/git/git-status-panel.tsx",
       "components/ui/adaptive-context-menu.tsx",
       "components/os-explorer/use-coarse-long-press.ts",
       "../web/hooks/use-touch-tab-drag.ts",

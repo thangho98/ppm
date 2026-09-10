@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Plus,
   Minus,
@@ -33,6 +33,13 @@ import { HunkStageDialog, type HunkStageTarget } from "./hunk-stage-dialog";
 import { GitRepoBar, GitRepoChoice, GitNoRepo } from "./git-repo-picker";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/adaptive-context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -842,63 +849,6 @@ function FileSection({
 }
 
 /* ------------------------------------------------------------------ */
-/*  useLongPress — tap vs long-press on mobile                         */
-/* ------------------------------------------------------------------ */
-
-function useLongPress(onLongPress: () => void, onTap: () => void, delay = 400) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const movedRef = useRef(false);
-  const firedRef = useRef(false);
-
-  const clear = useCallback(() => {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-  }, []);
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    movedRef.current = false;
-    firedRef.current = false;
-    timerRef.current = setTimeout(() => {
-      firedRef.current = true;
-      onLongPress();
-    }, delay);
-  }, [onLongPress, delay]);
-
-  const onTouchMove = useCallback(() => {
-    movedRef.current = true;
-    clear();
-  }, [clear]);
-
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    clear();
-    if (!movedRef.current && !firedRef.current) {
-      e.preventDefault();
-      onTap();
-    }
-  }, [clear, onTap]);
-
-  /**
-   * The event that was missing, and the whole reason the menu opened by itself.
-   *
-   * Cancelling on `touchmove` looks like enough — but once the browser decides the
-   * gesture is a scroll it fires `touchcancel` and then delivers **no more**
-   * `touchmove` or `touchend` to this element. The 400ms timer therefore survives
-   * the scroll and fires into it: the list is still moving under the finger and a
-   * context menu appears over it, with nothing the reader did to ask for one.
-   * Scrolling a list of changed files is the commonest thing done on this panel.
-   */
-  const onTouchCancel = useCallback(() => {
-    movedRef.current = true;
-    clear();
-  }, [clear]);
-
-  // A row unmounted mid-press — the status refreshes on every file save — would
-  // otherwise still open its menu, now belonging to no row at all.
-  useEffect(() => clear, [clear]);
-
-  return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel };
-}
-
-/* ------------------------------------------------------------------ */
 /*  FileRow                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -927,85 +877,69 @@ function FileRow({
   onRevert?: (f: GitFileChange) => void;
   displayName?: string;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const longPressHandlers = useLongPress(
-    useCallback(() => setMenuOpen(true), []),
-    useCallback(() => onClickFile(file), [onClickFile, file]),
-  );
-
-  const row = (
-    <div className="group relative flex items-center gap-1 hover:bg-muted/50 rounded pl-1 py-px w-full min-w-0">
-      <span
-        className={`text-xs font-mono w-4 text-center shrink-0 ${STATUS_COLORS[file.status] ?? ""}`}
-      >
-        {file.status}
-      </span>
-      <FileIcon name={file.path} className="size-3.5" />
-      {/* Desktop: click opens diff */}
-      <button
-        type="button"
-        className="hidden md:block flex-1 text-left text-xs font-mono truncate hover:underline min-w-0"
-        onClick={() => onClickFile(file)}
-        title={file.path}
-      >
-        {displayName ?? file.path}
-      </button>
-      {/* Mobile: plain text (long-press opens menu, tap opens diff) */}
-      <span className="md:hidden flex-1 text-left text-xs font-mono truncate min-w-0 select-none">
-        {displayName ?? file.path}
-      </span>
-      <ActionButtons
-        showRevert={showRevert}
-        onRevert={onRevert ? () => onRevert(file) : undefined}
-        onOpenFile={onOpenFile ? () => onOpenFile(file) : undefined}
-        onPickHunks={onPickHunks ? () => onPickHunks(file) : undefined}
-        onAction={() => onAction(file)}
-        actionIcon={actionIcon}
-        actionTitle={actionTitle}
-        disabled={disabled}
-      />
-    </div>
-  );
-
   return (
-    <>
-      {/* Desktop — just the row */}
-      <div className="hidden md:block">{row}</div>
-      {/* Mobile — tap opens diff, long-press opens menu */}
-      <div className="md:hidden select-none" {...longPressHandlers}>
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger asChild>{row}</DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-40">
-            <DropdownMenuItem onClick={() => onClickFile(file)}>
-              View Diff
-            </DropdownMenuItem>
-            {onOpenFile && (
-              <DropdownMenuItem onClick={() => onOpenFile(file)}>
-                Open File
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={() => onAction(file)} disabled={disabled}>
-              {actionTitle}
-            </DropdownMenuItem>
-            {onPickHunks && (
-              <DropdownMenuItem onClick={() => onPickHunks(file)} disabled={disabled}>
-                {actionTitle} Lines…
-              </DropdownMenuItem>
-            )}
-            {showRevert && onRevert && (
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => onRevert(file)}
-                disabled={disabled}
-              >
-                Discard Changes
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        {/* One row for both platforms: the adaptive menu is what differs, and
+            the tap that opens the diff is the filename button itself rather
+            than a hand-rolled tap detector — so a press that became a scroll,
+            or one that opened the sheet, cannot also open a diff. */}
+        <div className="group relative flex items-center gap-1 hover:bg-muted/50 rounded pl-1 py-px w-full min-w-0 select-none">
+          <span
+            className={`text-xs font-mono w-4 text-center shrink-0 ${STATUS_COLORS[file.status] ?? ""}`}
+          >
+            {file.status}
+          </span>
+          <FileIcon name={file.path} className="size-3.5" />
+          <button
+            type="button"
+            className="flex-1 text-left text-xs font-mono truncate min-w-0 can-hover:hover:underline"
+            onClick={() => onClickFile(file)}
+            title={file.path}
+          >
+            {displayName ?? file.path}
+          </button>
+          <ActionButtons
+            showRevert={showRevert}
+            onRevert={onRevert ? () => onRevert(file) : undefined}
+            onOpenFile={onOpenFile ? () => onOpenFile(file) : undefined}
+            onPickHunks={onPickHunks ? () => onPickHunks(file) : undefined}
+            onAction={() => onAction(file)}
+            actionIcon={actionIcon}
+            actionTitle={actionTitle}
+            disabled={disabled}
+          />
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="min-w-40">
+        <ContextMenuItem onClick={() => onClickFile(file)}>View Diff</ContextMenuItem>
+        {onOpenFile && (
+          <ContextMenuItem onClick={() => onOpenFile(file)}>Open File</ContextMenuItem>
+        )}
+        <ContextMenuItem onClick={() => onAction(file)} disabled={disabled}>
+          {actionTitle}
+        </ContextMenuItem>
+        {onPickHunks && (
+          <ContextMenuItem onClick={() => onPickHunks(file)} disabled={disabled}>
+            {actionTitle} Lines…
+          </ContextMenuItem>
+        )}
+        {showRevert && onRevert && (
+          <>
+            {/* Set apart, because on a sheet these rows are 44px tall and sit
+                where the thumb already is. */}
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              variant="destructive"
+              onClick={() => onRevert(file)}
+              disabled={disabled}
+            >
+              Discard Changes
+            </ContextMenuItem>
+          </>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -1154,11 +1088,14 @@ function TreeNodeView({
               style={{ left: railX, top: 13, width: 8 }} />
           </>
         )}
-        {/* Folder row */}
-        {(() => {
-          const folderRow = (
+        {/* Folder row. The menu used to be a plain dropdown whose trigger was
+            the whole row, which on a touch screen opens on *tap* — so tapping
+            a folder opened a menu instead of expanding it, and there was no
+            way to expand one at all. Long-press is the gesture for a menu. */}
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
             <div
-              className="group relative flex items-center hover:bg-muted/50 rounded py-0.5"
+              className="group relative flex items-center hover:bg-muted/50 rounded py-0.5 select-none"
               style={{ paddingLeft: depth * 12 + 2 }}
             >
               <button
@@ -1189,32 +1126,25 @@ function TreeNodeView({
                 disabled={disabled}
               />
             </div>
-          );
-          return (
-            <>
-              <div className="hidden md:block">{folderRow}</div>
-              <div className="md:hidden">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>{folderRow}</DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="min-w-40">
-                    <DropdownMenuItem onClick={() => onFolderAction?.(folderFiles)} disabled={disabled}>
-                      {actionTitle} {node.name}/
-                    </DropdownMenuItem>
-                    {onFolderRevert && (
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => onFolderRevert(folderFiles, node.fullPath)}
-                        disabled={disabled}
-                      >
-                        Discard Changes
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </>
-          );
-        })()}
+          </ContextMenuTrigger>
+          <ContextMenuContent className="min-w-40">
+            <ContextMenuItem onClick={() => onFolderAction?.(folderFiles)} disabled={disabled}>
+              {actionTitle} {node.name}/
+            </ContextMenuItem>
+            {onFolderRevert && (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  variant="destructive"
+                  onClick={() => onFolderRevert(folderFiles, node.fullPath)}
+                  disabled={disabled}
+                >
+                  Discard Changes
+                </ContextMenuItem>
+              </>
+            )}
+          </ContextMenuContent>
+        </ContextMenu>
         {/* Children — each child draws its own connector segment */}
         {expanded && (
           <div>
