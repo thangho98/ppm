@@ -362,12 +362,61 @@ describe("getWebviewHtml commit details", () => {
     expect(text).toMatch(/GMT|UTC/);
   });
 
+  it("sets the body as blocks, reflowing only the ones that were wrapped", () => {
+    // A commit body is wrapped at whatever width its author liked, which is
+    // not the width of the pane it ends up in; a list is not reflowable at all.
+    expect(render).toContain("splitCommitBody(body)");
+    expect(render).toContain("'<p class=\"msg-p\">'");
+    expect(render).toContain("'<pre class=\"msg-pre\">'");
+    // Prose in the UI font, verbatim blocks in monospace.
+    const prose = css.slice(css.indexOf(".msg-p {"), css.indexOf(".msg-pre {"));
+    expect(prose).not.toContain("monospace");
+    expect(css.slice(css.indexOf(".msg-pre {"))).toContain("monospace");
+  });
+
+  it("spaces the body's blocks itself, because the reset zeroed the defaults", () => {
+    // Every margin is zeroed at the top of this stylesheet, so a p element
+    // brings none of its own — the paragraphs would run together.
+    expect(css).toMatch(/\.msg-p \+ \.msg-p[^{]*\{[^}]*margin-top/);
+  });
+
+  it("makes a forty-character hash readable without shortening it", () => {
+    // The eight that identify the commit carry the contrast; the rest is there
+    // to be copied. A click still copies the whole thing.
+    expect(render).toContain("hashCell(detail.hash)");
+    expect(html).toContain('class="hash-lead"');
+    expect(html).toContain("String(hash).slice(0, 8)");
+    const lead = css.slice(css.indexOf(".hash-lead {"));
+    expect(lead.slice(0, lead.indexOf("}"))).toContain("var(--text)");
+  });
+
+  it("puts the two dates in a column of their own where there is room", () => {
+    // Author date against commit date is a comparison, and a comparison needs
+    // the two values to line up.
+    expect(wide).toMatch(/\.detail-meta \{[^}]*grid-template-columns: max-content minmax\(0, 1fr\) max-content/);
+    expect(wide).toMatch(/\.meta-when \{[^}]*grid-column: 3/);
+    // Narrower, it wraps to its own line instead of squeezing the name.
+    const base = css.slice(css.indexOf(".meta-when {"));
+    expect(base.slice(0, base.indexOf("}"))).toContain("grid-column: 2 / -1");
+  });
+
+  it("drops the header chips on a phone rather than truncating the author", () => {
+    // Two chips take half a 390px header and the name came out as "t." with an
+    // ellipsis. The metadata grid two lines below carries both hashes in full,
+    // so nothing is lost by hiding them.
+    const phone = css.slice(css.indexOf("@media (max-width: 640px)"));
+    expect(phone.slice(0, phone.indexOf("\n}"))).toContain(".detail-head-actions { display: none; }");
+  });
+
   it("copies any value it shows, by one delegate", () => {
     // The hash chips and the metadata values are the same affordance; two
     // handlers would be two chances for one of them to stop working.
     const handler = html.slice(html.indexOf("// Hash chips and metadata values"));
     expect(handler.slice(0, 400)).toContain("closest('[data-copy]')");
-    expect(html).toContain('data-copy="\' + escHtml(text)');
+    // Both helpers route through the same one, and a person copies as the
+    // canonical form git wants back rather than as what is on screen.
+    expect(html).toContain("function copyable(inner, text, cls)");
+    expect(html).toContain("name + ' <' + email + '>'");
   });
 
   /** The block that turns the panel into two panes. */

@@ -113,6 +113,59 @@ function formatCommitMessageImpl(message: string, rules: IssueLinkRule[]): strin
 /** Exported for tests; the webview gets the same function through `COMMIT_MESSAGE_JS`. */
 export const formatCommitMessage = formatCommitMessageImpl;
 
+export interface CommitBodyBlock {
+  /** `prose` may be reflowed to the pane; `pre` keeps every break the author typed. */
+  kind: "prose" | "pre";
+  text: string;
+}
+
+/**
+ * Split a commit body into blocks, and say which ones are hard-wrapped prose.
+ *
+ * A commit body is wrapped at whatever width its author liked — 72 columns,
+ * usually — so rendering it verbatim in a pane of some other width gives a
+ * ragged half-filled column, and rendering it as flowing text destroys the
+ * lists and the aligned blocks. So each paragraph is judged on its own.
+ *
+ * The test for "this was wrapped, and the breaks are not meaningful" is that
+ * every line but the last comes close to the block's longest — a hand-written
+ * list has short lines throughout, wrapped prose does not. Anything opening
+ * with a bullet, a quote, a fence, a heading, a number, a table pipe or an
+ * indent is left alone, and so is any block whose longest line is too short to
+ * have been wrapped at all.
+ *
+ * Self-contained for the same reason as the formatter above: it is injected by
+ * `toString()`.
+ */
+function splitCommitBodyImpl(body: string): CommitBodyBlock[] {
+  const source = String(body == null ? "" : body).replace(/\r\n?/g, "\n");
+  const blocks: CommitBodyBlock[] = [];
+  const MIN_WRAP_WIDTH = 40;
+
+  for (const chunk of source.split(/\n[ \t]*\n+/)) {
+    if (!chunk.trim()) continue;
+    const lines = chunk.replace(/\s+$/, "").split("\n");
+    let widest = 0;
+    for (const line of lines) if (line.length > widest) widest = line.length;
+
+    const flowing = widest >= MIN_WRAP_WIDTH && lines.every((line, i) => {
+      if (!/^\S/.test(line)) return false;
+      if (/^([-*+>|#]|\d+[.)])/.test(line)) return false;
+      if (line.startsWith("```")) return false;
+      // Every line but the last has to look full, or the breaks meant something.
+      return i === lines.length - 1 || line.length * 3 >= widest * 2;
+    });
+
+    blocks.push(flowing
+      ? { kind: "prose", text: lines.map((line) => line.trim()).join(" ") }
+      : { kind: "pre", text: lines.join("\n") });
+  }
+  return blocks;
+}
+
+/** Exported for tests; the webview gets the same function through `COMMIT_MESSAGE_JS`. */
+export const splitCommitBody = splitCommitBodyImpl;
+
 /**
  * The formatter, as source, for the webview script.
  *
@@ -125,4 +178,5 @@ const __formatCommitMessage = ${formatCommitMessageImpl.toString()};
 function formatCommitMessage(msg) {
   return __formatCommitMessage(msg, (state.settings && state.settings.issueLinkingRules) || []);
 }
+const splitCommitBody = ${splitCommitBodyImpl.toString()};
 `;

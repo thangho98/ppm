@@ -448,12 +448,29 @@ button:active { background: var(--surface); }
 .meta-label { color: var(--subtle); font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
 .meta-cells { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 12px; min-width: 0; }
 .meta-value { min-width: 0; overflow-wrap: anywhere; cursor: pointer; }
-.meta-value.mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10.5px; }
+.meta-value.mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10.5px; color: var(--subtle); }
+/* The eight characters that identify the commit carry the contrast; the other
+   thirty-two are there to be copied, not read. */
+.hash-lead { color: var(--text); font-weight: 600; }
+.meta-name { color: var(--text); }
+.meta-email { color: var(--subtext); margin-left: 6px; }
+.meta-value:hover .hash-lead, .meta-value:hover .meta-name, .meta-value:hover .meta-email { color: var(--blue); }
 .meta-value:hover { color: var(--blue); }
-.meta-value.copied { color: var(--green); }
-.meta-when { color: var(--subtext); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.meta-value.copied, .meta-value.copied .hash-lead, .meta-value.copied .meta-name, .meta-value.copied .meta-email { color: var(--green); }
+.meta-when { color: var(--subtext); white-space: nowrap; font-variant-numeric: tabular-nums; grid-column: 2 / -1; }
 .detail-subject { font-size: 14px; font-weight: 600; line-height: 1.4; letter-spacing: -0.1px; }
-.detail-text { margin-top: 12px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11.5px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 88ch; }
+
+/* The body. A paragraph its author wrapped at 72 columns is set as prose in the
+   UI font and reflowed to the pane it is actually in — verbatim monospace gave
+   a ragged half-filled column of the wrong width. A list or an aligned block is
+   not reflowable and keeps its breaks and its monospace; splitCommitBody
+   decides which is which. */
+.detail-text { margin-top: 12px; }
+.msg-p { font-size: 12px; line-height: 1.65; max-width: 76ch; }
+.msg-pre { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The reset zeroes every margin, so the space between paragraphs is set here
+   rather than inherited from the browser's default for a p element. */
+.msg-p + .msg-p, .msg-p + .msg-pre, .msg-pre + .msg-p, .msg-pre + .msg-pre { margin-top: 11px; }
 
 /* One scrollbar per pane above the breakpoint. A long message and a long file
    list are two lists of unrelated length, and scrolling the pair as one means
@@ -469,6 +486,14 @@ button:active { background: var(--surface); }
   /* The pane's own top padding would sit above a sticky header, leaving a strip
      for rows to scroll through; the header carries that space instead. */
   .detail-panel.split .files-head { position: sticky; top: 0; background: var(--surface); z-index: 1; padding: 8px 0 3px; }
+  /* A third column for the dates, so the author's and the committer's land one
+     under the other — the only way to see at a glance that a commit was
+     written on the third and landed on the eighth. Narrower than this there is
+     no room, and the date wraps onto its own line instead. */
+  .detail-meta { grid-template-columns: max-content minmax(0, 1fr) max-content; }
+  .meta-cells { grid-column: 2; }
+  .meta-cells.wide { grid-column: 2 / -1; }
+  .meta-when { grid-column: 3; }
 }
 
 .file-list { margin-top: 8px; min-width: 0; }
@@ -623,6 +648,10 @@ button:active { background: var(--surface); }
   .col-message { gap: 1px; }
   .msg-meta { display: block; font-size: 10px; color: var(--subtext); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .col-message .ref-badge { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+  /* Two hash chips take half a phone's width and left the author's name as
+     "t." with an ellipsis. They are a convenience, not the only copy of the
+     hash — the metadata grid two lines below has both, in full. */
+  .detail-head-actions { display: none; }
 }
 `;
 }
@@ -2328,9 +2357,29 @@ function wireCommitControls() {
 
 /* A value you can read in full and click to copy. Anything with a data-copy
    attribute is handled by the panel's one click delegate. */
-function copyable(text, mono) {
-  return '<span class="meta-value' + (mono ? ' mono' : '') + '" data-copy="' + escHtml(text)
-    + '" title="Click to copy">' + escHtml(text) + '</span>';
+function copyable(inner, text, cls) {
+  return '<span class="meta-value ' + cls + '" data-copy="' + escHtml(text)
+    + '" title="Click to copy">' + inner + '</span>';
+}
+
+/* Forty hex characters in one run is not text anyone reads. The eight that
+   identify the commit carry the contrast and the other thirty-two go quiet —
+   the whole thing is still there, and still what a click copies. */
+function hashCell(hash) {
+  const lead = String(hash).slice(0, 8);
+  const tail = String(hash).slice(8);
+  return copyable('<span class="hash-lead">' + escHtml(lead) + '</span>' + escHtml(tail), hash, 'mono');
+}
+
+/* Name and email are two things, so they are told apart by weight rather than
+   by angle brackets. What a click copies is still the canonical form, which is
+   what git itself wants back. */
+function personCell(name, email) {
+  return copyable(
+    '<span class="meta-name">' + escHtml(name) + '</span><span class="meta-email">' + escHtml(email) + '</span>',
+    name + ' <' + email + '>',
+    'person',
+  );
 }
 
 /* The timezone is part of the answer: a commit stamped 09:13 means nothing
@@ -2340,7 +2389,7 @@ function copyable(text, mono) {
    looks exactly like a locale that has no timezone name to give. */
 const WHEN_FORMAT = {
   year: 'numeric', month: 'short', day: 'numeric',
-  hour: '2-digit', minute: '2-digit', second: '2-digit',
+  hour: 'numeric', minute: '2-digit', second: '2-digit',
   timeZoneName: 'short',
 };
 function whenCell(ts) {
@@ -2348,9 +2397,13 @@ function whenCell(ts) {
   return '<span class="meta-when">' + escHtml(when.toLocaleString(undefined, WHEN_FORMAT)) + '</span>';
 }
 
-function metaRow(label, cells) {
+/* The when is a grid cell of its own rather than part of the value, which is
+   what puts the two dates in one column: the only way to see at a glance that
+   a commit was authored on the third and landed on the eighth. */
+function metaRow(label, cells, when) {
   return '<div class="meta-label">' + escHtml(label) + '</div>'
-    + '<div class="meta-cells">' + cells.join('') + '</div>';
+    + '<div class="meta-cells' + (when ? '' : ' wide') + '">' + cells.join('') + '</div>'
+    + (when || '');
 }
 
 function renderDetailPanel(detail) {
@@ -2379,14 +2432,14 @@ function renderDetailPanel(detail) {
   // interesting when they disagree — which is exactly what a rebase or an
   // amend does to them, so both are always here rather than folded into one.
   let meta = '<div class="detail-meta">';
-  meta += metaRow('Commit', [copyable(detail.hash, true)]);
+  meta += metaRow('Commit', [hashCell(detail.hash)]);
   if (detail.parents.length > 0) {
-    meta += metaRow(detail.parents.length > 1 ? 'Parents' : 'Parent', detail.parents.map(h => copyable(h, true)));
+    meta += metaRow(detail.parents.length > 1 ? 'Parents' : 'Parent', detail.parents.map(hashCell));
   }
-  meta += metaRow('Author', [copyable(detail.author + ' <' + detail.authorEmail + '>', false), whenCell(detail.authorDate)]);
+  meta += metaRow('Author', [personCell(detail.author, detail.authorEmail)], whenCell(detail.authorDate));
   const sameHand = detail.committer === detail.author && detail.committerEmail === detail.authorEmail;
   if (!sameHand || detail.commitDate !== detail.authorDate) {
-    meta += metaRow('Committer', [copyable(detail.committer + ' <' + detail.committerEmail + '>', false), whenCell(detail.commitDate)]);
+    meta += metaRow('Committer', [personCell(detail.committer, detail.committerEmail)], whenCell(detail.commitDate));
   }
   meta += '</div>';
 
@@ -2396,7 +2449,17 @@ function renderDetailPanel(detail) {
   const subject = firstBreak === -1 ? message : message.slice(0, firstBreak);
   const body = firstBreak === -1 ? '' : message.slice(firstBreak + 1).replace(/^\\n+/, '').replace(/\\s+$/, '');
   let left = '<div class="detail-msg">' + meta + '<div class="detail-subject">' + formatCommitMessage(subject) + '</div>';
-  if (body) left += '<div class="detail-text">' + formatCommitMessage(body) + '</div>';
+  if (body) {
+    // A paragraph the author wrapped at 72 columns is reflowed to the pane it
+    // is actually in; a list or an aligned block keeps every break it had.
+    let blocks = '';
+    for (const block of splitCommitBody(body)) {
+      blocks += block.kind === 'prose'
+        ? '<p class="msg-p">' + formatCommitMessage(block.text) + '</p>'
+        : '<pre class="msg-pre">' + formatCommitMessage(block.text) + '</pre>';
+    }
+    left += '<div class="detail-text">' + blocks + '</div>';
+  }
   left += '</div>';
 
   let right = '';

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { formatCommitMessage, COMMIT_MESSAGE_JS } from "./commit-message-html.ts";
+import { formatCommitMessage, splitCommitBody, COMMIT_MESSAGE_JS } from "./commit-message-html.ts";
 
 /** The default rule the graph ships with, and the one that caused the bug. */
 const ISSUE_RULE = [{ pattern: "#(\\d+)", url: "" }];
@@ -100,5 +100,88 @@ describe("COMMIT_MESSAGE_JS", () => {
     // No settings at all must not throw — the panel renders before they load.
     const bare = evaluate({});
     expect(bare("plain 'message'")).toBe("plain &#39;message&#39;");
+  });
+});
+
+describe("splitCommitBody", () => {
+  const NL = "\n";
+
+  it("reflows a paragraph its author wrapped at 72 columns", () => {
+    const body = [
+      "Extensions could not activate at all when PPM ran from a compiled binary.",
+      "Toggling one off and on again reported that the worker had been terminated,",
+      "and on startup activation timed out after ten seconds.",
+    ].join(NL);
+    expect(splitCommitBody(body)).toEqual([{
+      kind: "prose",
+      text: "Extensions could not activate at all when PPM ran from a compiled binary. "
+        + "Toggling one off and on again reported that the worker had been terminated, "
+        + "and on startup activation timed out after ten seconds.",
+    }]);
+  });
+
+  it("leaves a bulleted list exactly as it was written", () => {
+    // Joining these would run three items into one sentence.
+    const body = ["- the first item, which wraps", "  onto a second line", "- the second item here too"].join(NL);
+    expect(splitCommitBody(body)).toEqual([{ kind: "pre", text: body }]);
+  });
+
+  it("leaves short lines alone even though nothing marks them", () => {
+    // The give-away that the breaks are meaningful is that the lines are
+    // nowhere near the block's longest — wrapped prose fills all but one.
+    const body = ["Before: 33.3 MB", "After: 1.08 MB"].join(NL);
+    expect(splitCommitBody(body)).toEqual([{ kind: "pre", text: body }]);
+  });
+
+  it("does not reflow a paragraph with one deliberately short line in it", () => {
+    const body = [
+      "This first line runs all the way out to the usual seventy-two columns ok",
+      "short",
+      "and this last one is long again out to about seventy-two columns as well",
+    ].join(NL);
+    expect(splitCommitBody(body)[0]!.kind).toBe("pre");
+  });
+
+  it("splits on blank lines and judges each paragraph on its own", () => {
+    const body = [
+      "A first paragraph that was wrapped by its author at about seventy columns",
+      "and continues onto a second line here.",
+      "",
+      "- a list that follows it",
+      "- and must not be reflowed",
+    ].join(NL);
+    expect(splitCommitBody(body).map((b) => b.kind)).toEqual(["prose", "pre"]);
+  });
+
+  it("keeps a fence, a quote, a heading and a table verbatim", () => {
+    for (const first of ["```js", "> quoted text here", "# A heading", "| a | b |"]) {
+      const body = [first, "something else that is long enough to look like wrapped prose"].join(NL);
+      expect(splitCommitBody(body)[0]!.kind).toBe("pre");
+    }
+  });
+
+  it("treats an indented block as verbatim", () => {
+    const body = ["    indented like code, and long enough to look like wrapped prose", "    a second line"].join(NL);
+    expect(splitCommitBody(body)[0]!.kind).toBe("pre");
+  });
+
+  it("drops trailing blank lines rather than emitting empty blocks", () => {
+    expect(splitCommitBody("one line only" + NL + NL + NL)).toEqual([{ kind: "pre", text: "one line only" }]);
+    expect(splitCommitBody("")).toEqual([]);
+    expect(splitCommitBody(null as unknown as string)).toEqual([]);
+  });
+
+  it("normalises CRLF, so a message written on Windows reflows too", () => {
+    const body = "A line long enough to have been wrapped at seventy-two columns\r\n"
+      + "and a second line that continues the same sentence to its end.";
+    const [block] = splitCommitBody(body);
+    expect(block!.kind).toBe("prose");
+    expect(block!.text).not.toContain("\r");
+  });
+
+  it("ships to the webview as source, like the formatter", () => {
+    // Same reason: one copy, typed and tested here, injected by toString().
+    expect(COMMIT_MESSAGE_JS).toContain("const splitCommitBody =");
+    expect(() => new Function(COMMIT_MESSAGE_JS)).not.toThrow();
   });
 });
