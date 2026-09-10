@@ -1,6 +1,8 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useExtensionStore } from "@/stores/extension-store";
 import { getAuthToken } from "@/lib/api-client";
+import { THEME_CHANGE_EVENT } from "@/theme/apply-theme";
+import { HOST_THEME_MESSAGE, injectHostTheme, readHostTheme } from "./webview-theme";
 import { Loader2 } from "lucide-react";
 
 /** Inject acquireVsCodeApi() shim so extension webviews can postMessage to parent */
@@ -60,7 +62,15 @@ export function ExtensionWebview({ metadata }: ExtensionWebviewProps) {
 
   // Inject acquireVsCodeApi shim + write HTML into iframe via srcdoc
   const rawHtml = panel?.html ?? "";
-  const html = injectVscodeApiShim(rawHtml);
+  // Seeded with the theme so the panel's first paint is already the right one.
+  // Deliberately not a dependency of this memo: srcDoc is what mounts the
+  // iframe, so recomputing it on a theme change would reload the panel. Later
+  // changes are posted in below instead.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const html = useMemo(
+    () => injectHostTheme(injectVscodeApiShim(rawHtml), readHostTheme(document.documentElement)),
+    [rawHtml],
+  );
 
   // Track which project was last dispatched to prevent duplicate dispatches
   const prevProjectRef = useRef<string | null>(null);
@@ -200,6 +210,16 @@ export function ExtensionWebview({ metadata }: ExtensionWebviewProps) {
     window.addEventListener("ext:webview:message", handler);
     return () => window.removeEventListener("ext:webview:message", handler);
   }, [resolvedPanelId]);
+
+  // Forward theme changes to the iframe (see the srcDoc memo above)
+  useEffect(() => {
+    const handler = () => {
+      const { mode, css } = readHostTheme(document.documentElement);
+      iframeRef.current?.contentWindow?.postMessage({ command: HOST_THEME_MESSAGE, mode, css }, "*");
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, handler);
+  }, []);
 
   // Loading state — waiting for extension to create the panel AND deliver HTML.
   // We must wait for HTML before mounting the iframe because browsers don't

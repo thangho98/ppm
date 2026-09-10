@@ -167,6 +167,24 @@ ${getScript()}
 </html>`;
 }
 
+/**
+ * Dark values, emitted twice by design.
+ *
+ * The panel is a sandboxed iframe and cannot see the app's theme, so on its own
+ * the only question it can ask is prefers-color-scheme — the *OS* setting,
+ * which is why a light app still showed a dark graph. The host now stamps
+ * data-ppm-theme on this document and injects the app's own tokens
+ * (src/web/components/extensions/webview-theme.ts); the media query is the
+ * fallback for a host that says nothing, and it must not override an explicit
+ * light. Values are a charcoal rather than near-black so the toolbar, the list
+ * and the banded rows read as three surfaces instead of one slab.
+ */
+const DARK_TOKENS = `
+  --bg: #16171c; --surface: #1d1f26; --text: #ecedf0; --subtext: #a2a5b0; --subtle: #6b6f7c;
+  --border: #262932; --border2: #383c48; --selected: #1e293b;
+  --band: color-mix(in srgb, var(--text) 6%, transparent);
+`;
+
 function getStyles(): string {
   return `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -174,16 +192,24 @@ function getStyles(): string {
   --bg: #ffffff; --surface: #f4f4f5; --text: #09090b; --subtext: #71717a; --subtle: #a1a1aa;
   --border: #e4e4e7; --border2: #d4d4d8; --blue: #3b82f6; --red: #ef4444; --green: #22c55e;
   --yellow: #eab308; --purple: #8b5cf6; --orange: #f97316;
-  --surface-hover: #f4f4f5; --selected: #eff6ff;
+  --selected: #eff6ff;
+  /* Zebra banding. Stronger in dark below, because the same percentage is not
+     equally visible in both directions: a wash of near-black over white shows
+     up where the same lift of near-white over a near-black row does not, which
+     is what left the list looking like one flat slab. */
+  --band: color-mix(in srgb, var(--text) 3.5%, transparent);
+  /* Derived, never injected: the app has no hover token and some of its themes
+     give the same colour to both panel surfaces, which would leave a hovered
+     row looking untouched. A tint of the text colour flips with the mode and
+     stacks on top of the zebra banding instead of replacing it. */
+  --surface-hover: color-mix(in srgb, var(--text) 8%, transparent);
   /* Width of the branch/tag column. Fixed, because the graph is one SVG overlay
      drawn on a single grid and it starts where this column ends. */
   --refs-col-w: 170px;
 }
+:root[data-ppm-theme="dark"] { ${DARK_TOKENS} }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #09090b; --surface: #18181b; --text: #fafafa; --subtext: #a1a1aa; --subtle: #52525b;
-    --border: #27272a; --border2: #3f3f46; --selected: #1e293b; --surface-hover: #27272a;
-  }
+  :root:not([data-ppm-theme="light"]) { ${DARK_TOKENS} }
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 #app { display: flex; flex-direction: column; height: 100vh; }
@@ -296,7 +322,7 @@ button:active { background: var(--surface); }
    qualify it with #commit-list — an id would raise it above both of them and
    every other row would stop showing hover and selection. The header row is a
    .commit-row too but is the first child of its own parent, so it is odd. */
-.commit-row:nth-child(even) { background: color-mix(in srgb, var(--text) 3.5%, transparent); }
+.commit-row:nth-child(even) { background: var(--band); }
 .commit-row:hover { background: var(--surface-hover); }
 .commit-row.header-row { background: var(--surface); cursor: default; font-weight: 600; font-size: 10px; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--border); height: 24px; }
 .commit-row.header-row .col-message::before { display: none; }
@@ -368,8 +394,9 @@ button:active { background: var(--surface); }
 .ref-remote { border-color: var(--purple); background: color-mix(in srgb, var(--purple) 12%, transparent); }
 .ref-tag { border-color: var(--yellow); background: color-mix(in srgb, var(--yellow) 12%, transparent); }
 .ref-stash { border-color: #808080; background: color-mix(in srgb, #808080 12%, transparent); }
+:root[data-ppm-theme="dark"] .ref-badge { color: #e4e4e7; }
 @media (prefers-color-scheme: dark) {
-  .ref-badge { color: #e4e4e7; }
+  :root:not([data-ppm-theme="light"]) .ref-badge { color: #e4e4e7; }
 }
 
 /* SVG graph — single SVG overlay */

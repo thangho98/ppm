@@ -264,3 +264,54 @@ describe("webview-html: columns", () => {
     expect(handler).not.toContain("renderCommitList()");
   });
 });
+
+describe("getWebviewHtml theme source", () => {
+  const html = getWebviewHtml();
+  const css = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));
+
+  it("takes dark from the host attribute, not only from the OS", () => {
+    // The panel is a sandboxed iframe, so prefers-color-scheme reports the
+    // desktop's setting and has nothing to do with the theme the app is on.
+    expect(css).toContain(':root[data-ppm-theme="dark"]');
+  });
+
+  it("never lets the OS media query override an explicit light", () => {
+    // A bare ":root" inside the media query would win over nothing and lose to
+    // nothing, so a light app on a dark desktop stayed dark.
+    const media = css.slice(css.indexOf("@media (prefers-color-scheme: dark)"));
+    expect(media).toContain(':root:not([data-ppm-theme="light"])');
+    expect(/@media \(prefers-color-scheme: dark\) \{\s*:root \{/.test(css)).toBe(false);
+  });
+
+  it("derives the hover surface from the text colour", () => {
+    // The host injects the app's tokens, and some app themes give both panel
+    // surfaces the same colour — a hover mapped from one of them would be
+    // invisible in exactly those themes.
+    expect(css).toContain("--surface-hover: color-mix(in srgb, var(--text)");
+  });
+
+  it("gives the host's tokens the specificity to win", () => {
+    // webview-theme.ts injects ":root[data-ppm-theme]", which ties with the
+    // panel's own dark rule; source order breaks the tie, and the injected
+    // block is appended last. So the panel's rules must not be more specific
+    // than one attribute.
+    expect(css).not.toContain("html[data-ppm-theme");
+    expect(css).not.toContain(':root[data-ppm-theme="dark"][');
+  });
+
+  it("bands the rows harder in dark than in light", () => {
+    // Equal percentages are not equally visible: a black wash over a white row
+    // reads, the same lift of near-white over a near-black row does not.
+    const light = /--band: color-mix\(in srgb, var\(--text\) ([\d.]+)%/.exec(
+      css.slice(css.indexOf(":root {"), css.indexOf(':root[data-ppm-theme="dark"]')),
+    );
+    const dark = /--band: color-mix\(in srgb, var\(--text\) ([\d.]+)%/.exec(
+      css.slice(css.indexOf(':root[data-ppm-theme="dark"]')),
+    );
+    expect(Number(dark?.[1])).toBeGreaterThan(Number(light?.[1]));
+  });
+
+  it("dims the ref badge text with the mode rather than the desktop", () => {
+    expect(css).toContain(':root[data-ppm-theme="dark"] .ref-badge');
+  });
+});

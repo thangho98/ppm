@@ -9,6 +9,21 @@
  * only, so everything is inlined.
  */
 
+/**
+ * Dark values, emitted twice by design.
+ *
+ * A panel is a sandboxed iframe: it cannot see the app's theme, so on its own
+ * the only thing it can ask is prefers-color-scheme — the *OS* setting, which
+ * left every panel dark inside a light app. The host now stamps
+ * data-ppm-theme on the panel's own html element and injects the app's tokens
+ * (src/web/components/extensions/webview-theme.ts), so that attribute decides;
+ * the media query stays as the answer for a host that says nothing.
+ */
+const DARK_TOKENS = `
+  --bg: #16171c; --surface: #1d1f26; --text: #ecedf0; --subtext: #a2a5b0; --subtle: #6b6f7c;
+  --border: #262932; --border2: #383c48; --selected: #1e293b;
+`;
+
 /** Theme tokens, kept in sync with the graph panel's palette. */
 export const SHELL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -16,13 +31,15 @@ export const SHELL_CSS = `
   --bg: #ffffff; --surface: #f4f4f5; --text: #09090b; --subtext: #71717a; --subtle: #a1a1aa;
   --border: #e4e4e7; --border2: #d4d4d8; --blue: #3b82f6; --red: #ef4444; --green: #22c55e;
   --yellow: #eab308; --purple: #8b5cf6; --orange: #f97316;
-  --surface-hover: #f4f4f5; --selected: #eff6ff;
+  --selected: #eff6ff;
+  /* Derived, never injected: the app has no hover token and some of its themes
+     give the same colour to both panel surfaces, which would leave a hovered
+     row looking untouched. A tint of the text colour flips with the mode. */
+  --surface-hover: color-mix(in srgb, var(--text) 8%, transparent);
 }
+:root[data-ppm-theme="dark"] { ${DARK_TOKENS} }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #09090b; --surface: #18181b; --text: #fafafa; --subtext: #a1a1aa; --subtle: #52525b;
-    --border: #27272a; --border2: #3f3f46; --selected: #1e293b; --surface-hover: #27272a;
-  }
+  :root:not([data-ppm-theme="light"]) { ${DARK_TOKENS} }
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 #app { display: flex; flex-direction: column; height: 100vh; min-height: 0; }
