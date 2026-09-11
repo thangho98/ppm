@@ -28,6 +28,22 @@ export interface InputRow {
 
 export type FlatRow = NodeRow | InputRow;
 
+/**
+ * A row's identity, independent of where it currently sits in the list.
+ *
+ * This is React's `key` *and* the virtualizer's `getItemKey`, and the two have
+ * to be the same string. The virtualizer caches the DOM node it positions under
+ * its own key, and it only learns of a node through the `measureElement` ref —
+ * which React does not call again when a row merely changes index. So with the
+ * default key (the index), expanding a folder left every row below it registered
+ * under the index it used to have: the inserted rows overwrote those entries and
+ * the shifted ones were positioned by nothing at all, landing on top of each
+ * other at their old offsets.
+ */
+export function rowKey(row: FlatRow): string {
+  return row.kind === "node" ? row.node.path : `input:${row.targetPath}:${row.inline.type}`;
+}
+
 function sortNodes(nodes: FileNode[]): FileNode[] {
   return [...nodes].sort((a, b) => {
     if (a.type !== b.type) return a.type === "directory" ? -1 : 1;

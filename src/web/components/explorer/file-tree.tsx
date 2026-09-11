@@ -38,7 +38,7 @@ import {
 import { FileActions } from "./file-actions";
 import { TreeRow } from "./tree-node";
 import { InlineTreeInput } from "./inline-tree-input";
-import { flattenVisibleTree, type InputRow } from "./flatten-visible-tree";
+import { flattenVisibleTree, rowKey, type InputRow } from "./flatten-visible-tree";
 import { downloadFile, downloadFolder } from "@/lib/file-download";
 import { api, projectUrl } from "@/lib/api-client";
 import { openExplorer } from "@/components/os-explorer/open-explorer";
@@ -471,6 +471,13 @@ export function FileTree({ onFileOpen }: FileTreeProps = {}) {
     count: rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => (isMobile ? 32 : 26),
+    // Must match the `key` below. The default is the index, and an index is not
+    // an identity: insert a row and every row under it is cached against the
+    // slot it used to occupy, so `directDomUpdates` positions none of them.
+    // A ResizeObserver can fire for a row React has not unmounted yet, carrying a
+    // `data-index` past the end of a list that just shrank — hence the fallback
+    // rather than a `!`, since throwing here happens inside the observer.
+    getItemKey: (index) => { const r = rows[index]; return r ? rowKey(r) : `#${index}`; },
     overscan: 10,
     paddingStart: 4,
     paddingEnd: 4,
@@ -590,7 +597,7 @@ export function FileTree({ onFileOpen }: FileTreeProps = {}) {
                 const row = rows[vi.index]!;
                 return (
                   <div
-                    key={row.kind === "node" ? row.node.path : `input:${row.targetPath}:${row.inline.type}`}
+                    key={rowKey(row)}
                     data-index={vi.index}
                     ref={rowVirtualizer.measureElement}
                     className="absolute left-0 top-0 w-full"

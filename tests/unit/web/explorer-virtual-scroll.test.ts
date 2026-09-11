@@ -136,3 +136,34 @@ describe("one context menu for the tree, not one per row", () => {
     expect(tree).not.toMatch(/onTouchStartCapture/);
   });
 });
+
+describe("a row's identity is its path, not its position", () => {
+  // Direct updates position a row by looking its DOM node up in `elementsCache`,
+  // which the virtualizer keys with `getItemKey` — the index, by default. React
+  // keys these rows by path, so it reuses a node when a row merely shifts index
+  // and never calls the `measureElement` ref again. Expanding a folder therefore
+  // left every row below it registered under the slot it used to occupy: the
+  // inserted rows took over those entries and the shifted ones matched nothing,
+  // so `applyDirectStyles` skipped them and they stayed at their old offsets.
+  // Reproduced against the built bundle: expanding `.husky` put two pairs of
+  // rows on exactly the same y.
+  it("gives the virtualizer the same key React uses", () => {
+    expect(virtualizerOptions).toMatch(/getItemKey:\s*\(index\)\s*=>/);
+    expect(virtualizerOptions).toMatch(/rowKey\(r\)/);
+    expect(tree).toMatch(/key=\{rowKey\(row\)\}/);
+  });
+
+  it("keeps that key in one place, so the two cannot drift apart", () => {
+    const flatten = read("components/explorer/flatten-visible-tree.ts");
+    expect(flatten).toMatch(/export function rowKey\(row: FlatRow\): string/);
+    // The explorer must not spell the key out a second time.
+    expect(tree.replace(/rowKey\(/g, "")).not.toMatch(/input:\$\{/);
+  });
+
+  it("does not throw for an index the list no longer has", () => {
+    // `measureElement` takes the index off the DOM, so a ResizeObserver firing
+    // for a row React has not unmounted yet can ask for one past the end.
+    expect(virtualizerOptions).not.toMatch(/rowKey\(rows\[index\]!\)/);
+    expect(virtualizerOptions).toMatch(/r \? rowKey\(r\) : /);
+  });
+});
