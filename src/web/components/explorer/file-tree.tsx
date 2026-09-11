@@ -488,7 +488,7 @@ export function FileTree({ onFileOpen }: FileTreeProps = {}) {
   useEffect(() => {
     if (focusedPath == null) return;
     const idx = rows.findIndex(
-      (r) => r.kind === "node" && (r.node.path === focusedPath || r.effectiveNode.path === focusedPath),
+      (r) => r.kind === "node" && r.node.path === focusedPath,
     );
     if (idx >= 0) rowVirtualizer.scrollToIndex(idx, { align: "auto" });
   }, [focusedPath]); // eslint-disable-line react-hooks/exhaustive-deps

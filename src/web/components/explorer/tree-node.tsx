@@ -33,7 +33,7 @@ export interface TreeRowProps {
 }
 
 export const TreeRow = memo(function TreeRow({ row, projectName, onAction, onFileDrop, onFileOpen, transferRun }: TreeRowProps) {
-  const { node, effectiveNode, displayName, depth } = row;
+  const { node, depth } = row;
   const { expandedPaths, loadedPaths, inflight, toggleExpand, selectedFiles, toggleFileSelect, clipboard, focusedPath, setFocusedPath } = useFileStore(
     useShallow((s) => ({
       expandedPaths: s.expandedPaths,
@@ -65,8 +65,8 @@ export const TreeRow = memo(function TreeRow({ row, projectName, onAction, onFil
     clipboard?.operation === "cut" &&
     projectRoot != null &&
     clipboard.paths.includes(absoluteProjectPath(projectRoot, node.path));
-  const isFocused = focusedPath === node.path || focusedPath === effectiveNode.path;
-  const isLoadingChildren = isDir && isExpanded && !loadedPaths.has(effectiveNode.path) && inflight.has(effectiveNode.path);
+  const isFocused = focusedPath === node.path;
+  const isLoadingChildren = isDir && isExpanded && !loadedPaths.has(node.path) && inflight.has(node.path);
   const rowRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export const TreeRow = memo(function TreeRow({ row, projectName, onAction, onFil
     if (e.shiftKey && focusedPath != null) {
       const paths = getVisiblePaths();
       const fromIdx = paths.indexOf(focusedPath);
-      const toIdx = paths.indexOf(effectiveNode.path);
+      const toIdx = paths.indexOf(node.path);
       if (fromIdx >= 0 && toIdx >= 0) {
         const start = Math.min(fromIdx, toIdx);
         const end = Math.max(fromIdx, toIdx);
@@ -117,7 +117,6 @@ export const TreeRow = memo(function TreeRow({ row, projectName, onAction, onFil
     path: node.path,
     name: node.name,
     isDir,
-    effectivePath: effectiveNode.path,
     isSelected,
     selectedFiles,
     isExpanded,
@@ -143,7 +142,16 @@ export const TreeRow = memo(function TreeRow({ row, projectName, onAction, onFil
           "flex items-center w-full gap-1.5 px-2 py-1 rounded-[var(--rad-sm)] text-[13px] leading-[18px]",
           "min-h-[32px] md:min-h-[26px] hover:bg-surface-elevated transition-colors text-left",
           "select-none",
-          (isIgnored || isCut) && "opacity-40",
+          // A gitignored row is dimmed by `text-text-dim` on its label, not by
+          // fading the whole row: an alpha blend is not symmetric between light
+          // and dark, and at 40% a gitignored name measured 1.72–1.89:1 against
+          // the panel on the three light themes (2.07–2.23:1 on the dark ones) —
+          // under a 3:1 floor either way, and on light past the point where it
+          // can be read at all. The icon keeps its colours for the same reason:
+          // it is full-colour artwork with no `currentColor`, so an opacity on it
+          // is that same fade to the background. `cut` is a momentary state and
+          // stays a fade.
+          isCut && "opacity-40",
           isFocused && "bg-surface-elevated",
           isSelected && "bg-accent-wash",
           dnd.isDragOver && DROP_TARGET_CLASS,
@@ -169,10 +177,17 @@ export const TreeRow = memo(function TreeRow({ row, projectName, onAction, onFil
         <span
           className={cn(
             "truncate",
-            gitColor ?? (isSelected ? "text-text" : isDir && isExpanded ? "text-text font-medium" : "text-text-2"),
+            gitColor ??
+              (isSelected
+                ? "text-text"
+                : isIgnored
+                  ? "text-text-dim"
+                  : isDir && isExpanded
+                    ? "text-text font-medium"
+                    : "text-text-2"),
           )}
         >
-          {displayName}
+          {node.name}
         </span>
         {gitStatus && !isDir && (
           <span className={cn("text-[10px] ml-auto shrink-0 font-mono", gitColor)}>
