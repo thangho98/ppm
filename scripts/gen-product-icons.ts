@@ -245,6 +245,7 @@ const MAP: Record<string, string | null> = {
   VolumeX: "speaker-off",
   Image: "image",
   ImageOff: "image-off",
+  ImagePlus: "image-add",
   Music: "music-note-2",
   Coffee: "drink-coffee",
   Heart: "heart",
