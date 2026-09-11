@@ -3,6 +3,7 @@ import { resolve, sep } from "node:path";
 import { gitService } from "../../services/git.service.ts";
 import { gitHunksService, type HunkRequest, type HunkScope } from "../../services/git-hunks/git-hunks.service.ts";
 import { gitBlameService } from "../../services/git-blame/git-blame.service.ts";
+import { branchDiff } from "../../services/git-branch-diff/branch-diff.service.ts";
 import { discoverGitRepos, isGitRepo } from "../../services/git-repos/git-repo-discovery.ts";
 import { ok, err } from "../../types/api.ts";
 
@@ -88,6 +89,32 @@ gitRoutes.get("/diff-stat", async (c) => {
     return c.json(ok(files));
   } catch (e) {
     return c.json(err((e as Error).message), 500);
+  }
+});
+
+/**
+ * GET /git/branch-diff?base=&head=&mode=three-dot|two-dot
+ *
+ * Every file a branch changed, in one answer, plus the commit those changes
+ * were measured against. The Branch Review tab opens each file's diff at
+ * `mergeBase`, so the list and the viewer can never disagree about the base.
+ *
+ * A bad ref is a 400, not a 500: `base` and `head` come straight from a picker,
+ * and a branch deleted since it was rendered is an ordinary thing to ask about.
+ */
+gitRoutes.get("/branch-diff", async (c) => {
+  const projectPath = c.get("projectPath");
+  const mode = c.req.query("mode") === "two-dot" ? "two-dot" : "three-dot";
+  try {
+    const result = await branchDiff(
+      projectPath,
+      c.req.query("base"),
+      c.req.query("head"),
+      mode,
+    );
+    return c.json(ok(result));
+  } catch (e) {
+    return c.json(err((e as Error).message), 400);
   }
 });
 

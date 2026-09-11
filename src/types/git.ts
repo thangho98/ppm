@@ -97,3 +97,28 @@ export interface GitWorktree {
   /** True if this worktree can be pruned (directory missing/stale) */
   prunable: boolean;
 }
+
+/**
+ * A whole branch's changes against a base, as one list.
+ *
+ * `mergeBase` is the commit every per-file diff has to be opened against — in
+ * three-dot mode it is where the two refs diverged, not `base` itself.
+ */
+export interface BranchDiff {
+  base: string;
+  head: string;
+  mode: "three-dot" | "two-dot";
+  mergeBase: string;
+  files: BranchDiffFile[];
+}
+
+export interface BranchDiffFile {
+  path: string;
+  oldPath?: string;
+  status: "A" | "M" | "D" | "R" | "C" | "T";
+  additions: number;
+  deletions: number;
+  binary: boolean;
+  /** Head-side blob id; what a "reviewed" flag is remembered against. */
+  blob: string;
+}

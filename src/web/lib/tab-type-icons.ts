@@ -22,6 +22,7 @@ export const TAB_TYPE_ICONS: Record<TabType, LucideIcon> = {
   sqlite: Database,
   postgres: Database,
   "git-diff": FileDiff,
+  "branch-review": FileDiff,
   settings: Settings,
   extension: Puzzle,
   "extension-webview": Puzzle,
