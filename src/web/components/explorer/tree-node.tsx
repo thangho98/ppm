@@ -13,17 +13,11 @@ import { useShallow } from "zustand/react/shallow";
 import { useFileStore, getVisiblePaths, absoluteProjectPath, type FileNode } from "@/stores/file-store";
 import { useProjectStore } from "@/stores/project-store";
 import { useTabStore } from "@/stores/tab-store";
-import { useCompareStore } from "@/stores/compare-store";
 import { useGitStatusStore, GIT_STATUS_COLORS, type GitFileStatus } from "@/stores/git-status-store";
 import { cn } from "@/lib/utils";
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-} from "@/components/ui/adaptive-context-menu";
 import { DROP_TARGET_CLASS } from "@/components/os-explorer/dnd/drop-target-style";
 import type { DropRunner } from "@/components/os-explorer/dnd/entry-drop-executor";
 import { FileIcon } from "@/lib/file-icons";
-import { TreeNodeContextMenu } from "./tree-node-context-menu";
 import { useTreeRowDnd } from "./use-tree-row-dnd";
 import type { NodeRow } from "./flatten-visible-tree";
 
@@ -55,7 +49,6 @@ export const TreeRow = memo(function TreeRow({ row, projectName, onAction, onFil
   );
   const openTab = useTabStore((s) => s.openTab);
   const projectRoot = useProjectStore((s) => s.activeProject?.path);
-  const compareSelection = useCompareStore((s) => s.selection);
   const isDir = node.type === "directory";
   // Git decoration: per-file and per-folder status
   const gitStatus: GitFileStatus | undefined = useGitStatusStore((s) => {
@@ -137,69 +130,56 @@ export const TreeRow = memo(function TreeRow({ row, projectName, onAction, onFil
 
   return (
     <div {...dnd.containerHandlers}>
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <button
-            ref={rowRef}
-            {...dnd.entrySource}
-            onClick={handleClick}
-            className={cn(
-              // `leading-[18px]` is what makes the row exactly as tall as the
-              // virtualizer's `estimateSize` says it is. Without it the 13px text
-              // inherits line-height 1.5 — a 19.5px line box, so the row measured
-              // 27.5px against an estimate of 26, and every row scrolling into
-              // view corrected the total size underneath the scrollbar.
-              "flex items-center w-full gap-1.5 px-2 py-1 rounded-[var(--rad-sm)] text-[13px] leading-[18px]",
-              "min-h-[32px] md:min-h-[26px] hover:bg-surface-elevated transition-colors text-left",
-              "select-none",
-              (isIgnored || isCut) && "opacity-40",
-              isFocused && "bg-surface-elevated",
-              isSelected && "bg-accent-wash",
-              dnd.isDragOver && DROP_TARGET_CLASS,
-            )}
-            style={{ paddingLeft: `${depth * 16 + 8}px` }}
-          >
-            {isDir ? (
-              isLoadingChildren ? (
-                <Loader2 className="size-3.5 shrink-0 text-text-subtle animate-spin" />
-              ) : isExpanded ? (
-                <ChevronDown className="size-3.5 shrink-0 text-text-subtle" />
-              ) : (
-                <ChevronRight className="size-3.5 shrink-0 text-text-subtle" />
-              )
-            ) : (
-              <span className="w-3.5 shrink-0" />
-            )}
-            <FileIcon
-              name={node.name}
-              kind={isDir ? "directory" : "file"}
-              open={isExpanded}
-            />
-            <span
-              className={cn(
-                "truncate",
-                gitColor ?? (isSelected ? "text-text" : isDir && isExpanded ? "text-text font-medium" : "text-text-2"),
-              )}
-            >
-              {displayName}
-            </span>
-            {gitStatus && !isDir && (
-              <span className={cn("text-[10px] ml-auto shrink-0 font-mono", gitColor)}>
-                {gitStatus}
-              </span>
-            )}
-          </button>
-        </ContextMenuTrigger>
-        <TreeNodeContextMenu
-          node={node}
-          isDir={isDir}
-          projectName={projectName}
-          selectedFiles={selectedFiles}
-          compareSelection={compareSelection}
-          clipboard={clipboard}
-          onAction={onAction}
+      <button
+        ref={rowRef}
+        {...dnd.entrySource}
+        onClick={handleClick}
+        className={cn(
+          // `leading-[18px]` is what makes the row exactly as tall as the
+          // virtualizer's `estimateSize` says it is. Without it the 13px text
+          // inherits line-height 1.5 — a 19.5px line box, so the row measured
+          // 27.5px against an estimate of 26, and every row scrolling into
+          // view corrected the total size underneath the scrollbar.
+          "flex items-center w-full gap-1.5 px-2 py-1 rounded-[var(--rad-sm)] text-[13px] leading-[18px]",
+          "min-h-[32px] md:min-h-[26px] hover:bg-surface-elevated transition-colors text-left",
+          "select-none",
+          (isIgnored || isCut) && "opacity-40",
+          isFocused && "bg-surface-elevated",
+          isSelected && "bg-accent-wash",
+          dnd.isDragOver && DROP_TARGET_CLASS,
+        )}
+        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+      >
+        {isDir ? (
+          isLoadingChildren ? (
+            <Loader2 className="size-3.5 shrink-0 text-text-subtle animate-spin" />
+          ) : isExpanded ? (
+            <ChevronDown className="size-3.5 shrink-0 text-text-subtle" />
+          ) : (
+            <ChevronRight className="size-3.5 shrink-0 text-text-subtle" />
+          )
+        ) : (
+          <span className="w-3.5 shrink-0" />
+        )}
+        <FileIcon
+          name={node.name}
+          kind={isDir ? "directory" : "file"}
+          open={isExpanded}
         />
-      </ContextMenu>
+        <span
+          className={cn(
+            "truncate",
+            gitColor ?? (isSelected ? "text-text" : isDir && isExpanded ? "text-text font-medium" : "text-text-2"),
+          )}
+        >
+          {displayName}
+        </span>
+        {gitStatus && !isDir && (
+          <span className={cn("text-[10px] ml-auto shrink-0 font-mono", gitColor)}>
+            {gitStatus}
+          </span>
+        )}
+  </button>
     </div>
   );
 });

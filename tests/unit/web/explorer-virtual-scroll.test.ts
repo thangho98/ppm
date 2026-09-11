@@ -99,3 +99,40 @@ describe("the row's props do not defeat its own memo", () => {
     expect(body.slice(0, 400)).toMatch(/useFileStore\.getState\(\)\.selectedFiles/);
   });
 });
+
+describe("one context menu for the tree, not one per row", () => {
+  it("leaves the row with no menu of its own", () => {
+    // Every mounted row used to build this menu's 39 items on every render, and
+    // subscribed to a fifth store purely to feed it. VS Code has one
+    // `tree.onContextMenu` for the whole list.
+    expect(row).not.toMatch(/ContextMenuTrigger/);
+    expect(row).not.toMatch(/TreeNodeContextMenu/);
+    expect(row).not.toMatch(/useCompareStore/);
+  });
+
+  it("builds the menu once, from whichever row the gesture landed on", () => {
+    expect(tree).toMatch(/<TreeNodeContextMenu/);
+    expect(tree).toMatch(/menuNode \? \(/); // node menu, else the tree's own
+  });
+
+  it("resolves the row from the DOM, since no row component is involved by then", () => {
+    const fn = tree.slice(tree.indexOf("const rememberMenuTarget"));
+    const body = fn.slice(0, fn.indexOf("\n  );"));
+    expect(body).toMatch(/closest\?\.\("\[data-index\]"\)/);
+    expect(body).toMatch(/rowsRef\.current\[index\]/);
+    // Identity check, or every tap on the same row would cost a render.
+    expect(body).toMatch(/prev === node \? prev : node/);
+  });
+
+  it("listens on both of the events that precede it opening", () => {
+    // `contextmenu` is the mouse. Touch resolves from `pointerdown`, which a
+    // finger fires before `touchstart` — and the long-press timer that opens the
+    // sheet runs 400ms after that, so the target has landed in time. Listening on
+    // `touchstart` as well was tried and removed: it guards a browser with no
+    // pointer events, and it trips `long-press-touchcancel.test.ts`, which reads
+    // any file naming `onTouchStart` beside a `setTimeout` as an armed press.
+    expect(tree).toMatch(/onContextMenuCapture=\{rememberMenuTarget\}/);
+    expect(tree).toMatch(/onPointerDownCapture=\{rememberMenuTarget\}/);
+    expect(tree).not.toMatch(/onTouchStartCapture/);
+  });
+});

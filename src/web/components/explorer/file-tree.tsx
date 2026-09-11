@@ -23,6 +23,7 @@ import {
 import { useProjectStore } from "@/stores/project-store";
 import { useTabStore } from "@/stores/tab-store";
 import { useCompareStore } from "@/stores/compare-store";
+import { TreeNodeContextMenu } from "./tree-node-context-menu";
 import { openCompareTab } from "@/lib/open-compare-tab";
 import { toast } from "sonner";
 import { cn, basename } from "@/lib/utils";
@@ -425,6 +426,34 @@ export function FileTree({ onFileOpen }: FileTreeProps = {}) {
     () => flattenVisibleTree(tree, expandedPaths, inlineAction),
     [tree, expandedPaths, inlineAction],
   );
+  // One context menu for the whole tree, resolved from whichever row the gesture
+  // landed on — VS Code does the same with a single `tree.onContextMenu`. A menu
+  // per row meant every mounted row built this menu's 39 items on every render.
+  //
+  // The row is read out of the DOM (`data-index` → `rows[i]`) rather than passed
+  // in, because by the time the menu opens there is no row component involved.
+  // `rows` goes through a ref so the handler itself stays stable: it is on the
+  // scroll container, and an unstable one there would be a new listener per render.
+  const [menuNode, setMenuNode] = useState<FileNode | null>(null);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const compareSelection = useCompareStore((s) => s.selection);
+  const rememberMenuTarget = useCallback(
+    (e: React.MouseEvent | React.PointerEvent) => {
+    // A finger fires `pointerdown` before `touchstart`, and the long-press timer
+    // that opens the sheet is armed 400ms later — so this has landed well before
+    // the menu needs it. A mouse opens the menu on `contextmenu` instead; a left
+    // click needs no target and would only cost a render.
+    if (e.type === "pointerdown" && (e as React.PointerEvent).pointerType === "mouse") return;
+    const el = (e.target as HTMLElement | null)?.closest?.("[data-index]");
+    const index = el ? Number(el.getAttribute("data-index")) : -1;
+    const row = Number.isInteger(index) && index >= 0 ? rowsRef.current[index] : undefined;
+    const node = row?.kind === "node" ? row.node : null;
+    setMenuNode((prev) => (prev === node ? prev : node));
+    },
+    [],
+  );
+
   const scrollRef = useRef<HTMLDivElement>(null);
   useDragAutoScroll(scrollRef);
   const isMobile = useIsMobile();
@@ -550,7 +579,12 @@ export function FileTree({ onFileOpen }: FileTreeProps = {}) {
       {/* File tree with blank-area context menu — virtualized flat rows */}
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <div ref={scrollRef} className="flex-1 overflow-y-auto">
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto"
+            onContextMenuCapture={rememberMenuTarget}
+            onPointerDownCapture={rememberMenuTarget}
+          >
             <div ref={rowVirtualizer.containerRef} className="relative w-full">
               {rowVirtualizer.getVirtualItems().map((vi) => {
                 const row = rows[vi.index]!;
@@ -596,21 +630,33 @@ export function FileTree({ onFileOpen }: FileTreeProps = {}) {
             </div>
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuItem onClick={() => handleAction("new-file", ROOT_NODE)}>
-            <FilePlus className="size-3.5 mr-2" />
-            New File
-          </ContextMenuItem>
-          <ContextMenuItem onClick={() => handleAction("new-folder", ROOT_NODE)}>
-            <FolderPlus className="size-3.5 mr-2" />
-            New Folder
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem onClick={reloadTree}>
-            <RefreshCw className="size-3.5 mr-2" />
-            Refresh
-          </ContextMenuItem>
-        </ContextMenuContent>
+        {menuNode ? (
+          <TreeNodeContextMenu
+            node={menuNode}
+            isDir={menuNode.type === "directory"}
+            projectName={activeProject.name}
+            selectedFiles={selectedFiles}
+            compareSelection={compareSelection}
+            clipboard={clipboard}
+            onAction={handleAction}
+          />
+        ) : (
+          <ContextMenuContent>
+            <ContextMenuItem onClick={() => handleAction("new-file", ROOT_NODE)}>
+              <FilePlus className="size-3.5 mr-2" />
+              New File
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => handleAction("new-folder", ROOT_NODE)}>
+              <FolderPlus className="size-3.5 mr-2" />
+              New Folder
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={reloadTree}>
+              <RefreshCw className="size-3.5 mr-2" />
+              Refresh
+            </ContextMenuItem>
+          </ContextMenuContent>
+        )}
       </ContextMenu>
 
       {actionState?.action === "delete" && (
