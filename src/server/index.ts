@@ -179,6 +179,15 @@ app.route("/api/system", resourceRoutes);
 import { hostInfoRoutes } from "./routes/host-info.ts";
 app.route("/api/system", hostInfoRoutes);
 
+// Event-loop lag. One process serves every request and all of the chat work, so
+// a stall here is a stall everywhere; the report says whether the time was spent
+// on our own synchronous work or off the CPU entirely, which is what decides
+// whether the answer is in this repository at all.
+app.get("/api/system/event-loop", async (c) => {
+  const { lagReport } = await import("../services/event-loop-lag.ts");
+  return c.json(ok(lagReport()));
+});
+
 // Remote desktop (video capture + input) — on by default, opt-out via REMOTE_DESKTOP_ENABLED=0, see remote-desktop-flag.ts
 import { remoteDesktopRoutes } from "./routes/remote-desktop.ts";
 app.route("/api/remote-desktop", remoteDesktopRoutes);
@@ -969,6 +978,9 @@ if (process.argv.includes("__serve__")) {
 
   // Start background usage limit polling (every 5 min)
   import("../services/claude-usage.service.ts").then(({ startUsagePolling }) => startUsagePolling()).catch(() => {});
+
+  // Watch how long the loop is unavailable for, and whose fault that is
+  import("../services/event-loop-lag.ts").then(({ startLagMonitor }) => startLagMonitor()).catch(() => {});
 
   // Discover + activate enabled extensions
   import("../services/extension.service.ts").then(({ extensionService }) => extensionService.startup()).catch((e) => {
