@@ -144,7 +144,12 @@ export const TreeRow = memo(function TreeRow({ row, projectName, onAction, onFil
             {...dnd.entrySource}
             onClick={handleClick}
             className={cn(
-              "flex items-center w-full gap-1.5 px-2 py-1 rounded-[var(--rad-sm)] text-[13px]",
+              // `leading-[18px]` is what makes the row exactly as tall as the
+              // virtualizer's `estimateSize` says it is. Without it the 13px text
+              // inherits line-height 1.5 — a 19.5px line box, so the row measured
+              // 27.5px against an estimate of 26, and every row scrolling into
+              // view corrected the total size underneath the scrollbar.
+              "flex items-center w-full gap-1.5 px-2 py-1 rounded-[var(--rad-sm)] text-[13px] leading-[18px]",
               "min-h-[32px] md:min-h-[26px] hover:bg-surface-elevated transition-colors text-left",
               "select-none",
               (isIgnored || isCut) && "opacity-40",
