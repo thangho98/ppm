@@ -139,6 +139,7 @@ export function ChatTab({ metadata, tabId }: ChatTabProps) {
     pendingApproval,
     contextWindowPct,
     compactStatus,
+    promptCache,
     statusMessage,
     sessionTitle,
     model,
@@ -671,6 +672,7 @@ export function ChatTab({ metadata, tabId }: ChatTabProps) {
         connectingElapsed={connectingElapsed}
         statusMessage={statusMessage}
         compactStatus={compactStatus}
+        promptCache={promptCache}
         projectName={projectName}
         onFork={!isStreaming ? handleFork : undefined}
         onEdit={!isStreaming ? handleEdit : undefined}
