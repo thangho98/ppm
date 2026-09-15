@@ -1,11 +1,15 @@
 /**
  * The chat header's usage chip and the panel it opens.
  *
- * Display only. Adding, removing, enabling, exporting and rotating accounts all live in
- * Settings → Accounts; this panel links there instead of carrying its own copy of those
- * controls, which is what let the two drift apart. The account cards are the same component
- * the Settings pane renders — passing no action callbacks is what makes them read-only, so
- * there is one card implementation rather than a display twin.
+ * Usage, plus the one control that belongs beside it: the switch that parks an account or
+ * brings it back. Disabling is a reaction to the numbers on this panel — the reason anyone
+ * looks at it — so making that a trip to Settings put the answer and the action on two
+ * screens. Adding, removing, exporting and rotating are not reactions to usage and are still
+ * only in Settings → Accounts, which this panel links to.
+ *
+ * The account cards are the same component the Settings pane renders and the switch makes the
+ * same `patchAccount` call it makes; which controls a card shows is decided by the callbacks
+ * its caller passes, so there is one card implementation rather than a display twin.
  *
  * Accounts sit in a row that scrolls sideways, not a vertical stack: this panel exists to
  * compare them, and stacked in a 350px strip that meant scrolling past one account to see
@@ -19,7 +23,9 @@ import { openSettings } from "@/components/settings/open-settings";
 import { AccountCard } from "@/components/settings/accounts/account-card";
 import { AccountBucketRow } from "@/components/settings/accounts/account-bucket-row";
 import { useAccountsData } from "@/components/settings/accounts/use-accounts-data";
+import { AccountsPaneMessage } from "@/components/settings/accounts/accounts-pane-header";
 import { formatLastUpdated, pctColor } from "@/components/settings/accounts/account-usage-format";
+import { patchAccount } from "@/lib/api-settings";
 
 interface UsageBadgeProps {
   usage: UsageInfo;
@@ -67,6 +73,23 @@ export function UsageDetailPanel({ usage, visible, onClose, onReload, loading, l
   // usage endpoint is the expensive one.
   const { usages, accounts, activeAccountId, initialLoading, refreshing, flashIds, reload } = useAccountsData(visible);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  // Catch and pending flag as in the Settings pane, for the same reason: enabling a parked
+  // account makes the server prove its token first, which is a round trip that can take most
+  // of a minute and can come back 400. Uncaught, the switch simply snaps back and whatever
+  // the server took the trouble to say reaches nobody.
+  async function handleToggle(id: string, status: string) {
+    setTogglingId(id);
+    try {
+      await patchAccount(id, { status: status === "disabled" ? "active" : "disabled" });
+    } catch (e) {
+      setMessage((e as Error).message);
+    }
+    setTogglingId(null);
+    void reload();
+  }
 
   if (!visible) return null;
 
@@ -133,6 +156,14 @@ export function UsageDetailPanel({ usage, visible, onClose, onReload, loading, l
         </div>
       </div>
 
+      {message && (
+        // shrink-0: in fullscreen this row is a flex child and would otherwise be squeezed
+        // to nothing by the grid below it.
+        <div className="shrink-0">
+          <AccountsPaneMessage message={message} onDismiss={() => setMessage(null)} />
+        </div>
+      )}
+
       {hasPerAccountUsage || initialLoading ? (
         <div
           className={isFullscreen
@@ -153,6 +184,8 @@ export function UsageDetailPanel({ usage, visible, onClose, onReload, loading, l
                 entry={entry}
                 isActive={entry.accountId === (activeAccountId ?? usage.activeAccountId)}
                 accountInfo={accountMap.get(entry.accountId)}
+                onToggle={handleToggle}
+                toggling={togglingId === entry.accountId}
                 flash={flashIds.has(entry.accountId)}
                 layout={isFullscreen ? "grid" : "strip"}
               />
