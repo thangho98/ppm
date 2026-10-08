@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Scrolling up past a compaction showed "File not found" in a chat whose session had changed folder.** Claude Code names the transcript in a compaction summary after the folder the session was started or resumed in, so a session resumed in a subfolder (a bot reopening it inside a checkout, say) pointed at a project folder that was never created. When the file a summary names does not exist, PPM now looks for that session's transcript in the folder of the chat's own project instead, and in no other project's.
+
 ## [0.23.14] - 2026-10-08
 
 ### Added
