@@ -16,6 +16,8 @@
 
 - **Cloning a large repository from Add project could report "Clone failed" after 10 seconds while git finished cloning in the background.** `POST /api/projects/git/clone` now disables Bun's 10-second idle request timeout while the clone runs.
 
+- **Project file routes no longer reach a folder next to the project whose name starts the same.** For a project at `/home/u/app`, a path like `../app-secrets/…` passed the check, so viewing a file (raw, probe, transcode, Word preview) could read from `app-secrets`, and an upload could create folders and write files there; such paths are now refused.
+
 ## [0.23.37] - 2026-11-10
 
 ### Changed
