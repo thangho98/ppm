@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Excel files open in PPM.** Clicking an `.xlsx` or `.xlsm` shows it as a read-only table with its sheets as tabs along the bottom, so a workbook no longer has to be downloaded to look at it. Large sheets show their first rows with a note saying so, and an old `.xls` or a password-protected workbook says why it cannot be shown.
+
 ### Fixed
 
 - Codex turns rejected before starting now clear the streaming state. Text being streamed is labeled “Responding” instead of “Thinking”, and split UTF-8 characters survive the subprocess stream intact.
