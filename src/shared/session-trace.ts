@@ -17,6 +17,10 @@ export type TraceOrigin =
   | "proxy"
   /** Another session's AI, through PPM's session tools (`src/server/ws/chat-inject.ts`). */
   | "session"
+  /** The provider asked for a turn of its own (`provider_continue`). */
+  | "provider"
+  /** Spec mode: an approval the user gave in the Spec pane, or a task Run all handed to a chat. */
+  | "spec"
   | "browser"
   | "unknown";
 

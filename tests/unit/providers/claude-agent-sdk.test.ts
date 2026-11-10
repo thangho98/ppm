@@ -13,6 +13,7 @@ import { preToolUseDecision } from "../../../src/providers/claude-agent-sdk-quer
 import { setServerListenAddress } from "../../../src/services/server-listen-address.ts";
 import { tabToolsMcpAccessFor, tabToolsMcpTokens } from "../../../src/services/tab-tools-mcp/tab-tools-mcp-tokens.ts";
 import { sessionCollabMcpAccessFor, sessionCollabMcpTokens } from "../../../src/services/session-collab/session-collab-tokens.ts";
+import { specMcpAccessFor } from "../../../src/services/specs/spec-mcp-tokens.ts";
 import {
   SUBSCRIPTION_PROMPT_CACHE_TTL_MS,
   API_KEY_PROMPT_CACHE_TTL_MS,
@@ -139,6 +140,27 @@ describe("ClaudeAgentSdkProvider", () => {
 
       const done = events.find((e) => e.type === "done");
       expect(done).toBeTruthy();
+    });
+
+    it("reports a queued push's lifecycle frames as queue_lifecycle, and drops malformed ones", async () => {
+      const iter = createMockQueryIterator([
+        { type: "command_lifecycle", command_uuid: "q1", state: "queued" } as any,
+        { type: "command_lifecycle", command_uuid: "q1", state: "started" } as any,
+        { type: "command_lifecycle", command_uuid: "q1", state: "exploded" } as any,
+        { type: "command_lifecycle", state: "started" } as any,
+        { type: "assistant", message: { content: [{ type: "text", text: "ok" }] } },
+        { type: "result" },
+      ]);
+      mockQueryFn.mockReturnValue(iter);
+
+      const session = await provider.createSession({});
+      const events: ChatEvent[] = [];
+      for await (const event of provider.sendMessage(session.id, "hi")) events.push(event);
+
+      expect(events.filter((e) => e.type === "queue_lifecycle")).toEqual([
+        { type: "queue_lifecycle", id: "q1", state: "queued" },
+        { type: "queue_lifecycle", id: "q1", state: "started" },
+      ]);
     });
 
     it("says why the API refused a turn, not just that the request was invalid", async () => {
@@ -1601,6 +1623,7 @@ describe("ClaudeAgentSdkProvider", () => {
         // What chatService.prepareSendOptions hands the session's turn.
         await drain(provider.sendMessage(session.id, "hi", {
           tabToolsMcp: tabToolsMcpAccessFor(session.id)!, sessionCollabMcp: sessionCollabMcpAccessFor(session.id)!,
+          specMcp: specMcpAccessFor(session.id)!,
         }));
         expect(clis).toHaveLength(1);
         expect(clis[0]!.pushed.map((m) => m.message.content)).toEqual(["hi"]);

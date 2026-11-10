@@ -55,11 +55,19 @@ export interface SendMessageOpts {
    * session. Server-built like `designMcp`.
    */
   sessionCollabMcp?: { url: string; token: string };
+  /** Spec mode's tools (`/api/specs-mcp`); server-built per turn like the others. */
+  specMcp?: { url: string; token: string };
   /**
    * The browser's id for the message being sent (its optimistic bubble), opaque to the provider.
    * Handed back on `turn_started` so the browser learns which turn that message opened.
    */
   clientMessageId?: string;
+  /**
+   * The id a message sent while a turn runs is queued under (`src/shared/chat-queue.ts`). A
+   * provider with {@link AIProvider.cancelQueuedMessage} tags the push with it and reports its
+   * progress as `queue_lifecycle` events.
+   */
+  queueId?: string;
 }
 
 export interface AIProvider {
@@ -117,6 +125,13 @@ export interface AIProvider {
   getUsage?(sessionId?: string, pickedAccountId?: string): Promise<UsageInfo>;
   /** True when a live streaming subprocess exists for this session */
   hasStreamingSession?(sessionId: string): boolean;
+  /**
+   * The provider queues a message pushed mid-turn itself and reads it at its next step (Claude).
+   * Takes a queued message back by its `queueId`; false when it was already being read.
+   */
+  cancelQueuedMessage?(sessionId: string, queueId: string): Promise<boolean>;
+  /** Have the AI read what is queued now rather than at its next step (Claude's Send now). */
+  sendQueuedNow?(sessionId: string): Promise<void>;
   /**
    * The effort the session's live subprocess sends and what overrides the pick there; null
    * when none is running or it cannot say. Only providers whose effort can be overridden
@@ -268,6 +283,8 @@ export interface UsageInfo {
   resetCredits?: ResetCredits;
   activeAccountId?: string;
   activeAccountLabel?: string;
+  /** ISO time these limits were read from the provider. */
+  lastFetchedAt?: string;
 }
 
 /** A weekly limit that applies to one model only, named as the provider names it. */
@@ -296,6 +313,7 @@ export type ResultSubtype =
   | "error_auth";
 
 export type ChatEvent =
+  | { type: "queue_lifecycle"; id: string; state: import("../shared/chat-queue").QueueLifecycleState }
   | { type: "text"; content: string; parentToolUseId?: string; arrivalSeq?: number }
   | { type: "thinking"; content: string; parentToolUseId?: string; arrivalSeq?: number }
   | {
@@ -336,6 +354,8 @@ export type ChatEvent =
   | { type: "account_retry"; reason: string; accountId?: string; accountLabel?: string }
   | { type: "status_update"; phase: "routing" | "refreshing" | "switching" | "retrying"; message: string; accountLabel?: string }
   | { type: "system"; subtype: string }
+  /** A provider asks for a turn it starts itself, with this as the user's message (Antigravity, after a background task). */
+  | { type: "provider_continue"; content: string }
   | { type: "team_detected"; teamName: string }
   | { type: "team_updated"; teamName: string; team: unknown }
   | { type: "team_inbox"; teamName: string; agent: string; messages: unknown[] }

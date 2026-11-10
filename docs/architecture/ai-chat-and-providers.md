@@ -467,7 +467,7 @@ PPM uses a **persistent streaming session** model instead of per-message query e
 - Provider maintains **long-lived AsyncGenerator streaming input** per chat session (not per message)
 - Follow-up messages **push into the existing generator** instead of abort-and-replace
 - **Single streaming loop** per session decoupled from WebSocket message handler
-- Message priority support: `now` (interrupt current), `next` (queue first), `later` (queue at end)
+- Messages typed while a turn runs wait in a queue shown above the composer (see *Message queue* below)
 - Supports image attachments in messages
 
 **Design Benefits:**
@@ -491,10 +491,7 @@ Sends: { type: "message", content: "Debug...", priority?: "now"|"next"|"later" }
 WS handler in chat.ts receives message
     ↓
 If already streaming with different content → abort previous + wait cleanup
-If streaming, new message priority determines queue behavior:
-    • priority: "now" → abort current, restart with new content
-    • priority: "next" → push into pending queue (higher priority)
-    • priority: "later" → push to end of queue (FIFO)
+If streaming, the message joins the session's queue (see Message queue below)
     ↓
 runStreamLoop() executes in detached async context
     ↓
@@ -527,6 +524,42 @@ Phase transitions to idle, clients can send new message
     ↓
 useChat saves message to store, displays in chat history
 ```
+
+### Message queue
+
+A message a person sends while a turn runs works like Claude Code's queue. It is not drawn in the
+conversation. Instead it waits in a stack above the composer (`queued-messages-stack.tsx`), with
+**Send now**, **Edit** (back into the composer) and **Remove**. Ctrl/Cmd+Enter does Send now. The
+queue is the server's (`SessionEntry.queue`, `src/server/ws/chat-message-queue.ts`), so every device
+shows the same stack: it goes out as `queue_state` and in the greeting's `session_state.queue`.
+
+- **Claude** gets the message at once, pushed with the entry's id as the SDK message `uuid`. The
+  CLI reads it at the turn's next step, as soon as the running tool calls finish, or right after
+  the turn. It reports each step as a `command_lifecycle` frame, which the provider yields as
+  `queue_lifecycle`. On `started` the entry leaves the stack and joins the conversation
+  (`user_message` to every device, the sender's included). Edit and Remove call
+  `cancelAsyncMessage(uuid)`, which answers `false` once the CLI has started reading. Send now
+  calls `backgroundTasks()` (running shells and subagents move to the background, and the CLI reads
+  the queue in the same turn); when there is nothing to move, it calls `interrupt()`, which keeps
+  the queue and sends it next.
+- **Every other provider** (Codex, Antigravity, …): PPM holds the entries and sends them as one
+  message when the turn ends. Send now pushes them right away; Codex steers that push into the
+  running turn.
+- **Stop or a crash** kills Claude's own queue together with its process, so whatever was queued is
+  sent once the stream ends.
+- **Merging into one message.** Queued messages are merged by decoding each message's blocks and
+  encoding them once (a block decodes only at the end of a message). One message carries one reply
+  and one set of turn references, so a second reply waits for the next turn (`mergeablePrefix`).
+- **Send now needs a command old enough to be a task.** `backgroundTasks()` moves a Bash command
+  only after the CLI has registered it as a task, about 3 s after it starts. Before that, the
+  call still answers `true` and changes nothing. So the provider interrupts the turn unless the CLI
+  starts reading the queue within 1.5 s (`SEND_NOW_GRACE_MS`). The interrupted turn's
+  `error_during_execution` result is an ordinary end, not an error.
+- **Mid-turn delivery format.** A queued message the CLI reads mid-turn reaches the API inside a
+  `<system-reminder>`, in a trailing `role: "system"` message, beside the tool result.
+
+e2e: `PPM_PLAYWRIGHT_MODULE=<playwright-core>/index.mjs node tests/e2e/chat-queue-e2e.mjs`. It runs the
+real Claude CLI against the fake API in `fixtures/chat-queue-server.ts`.
 
 ### Session State Management
 
@@ -1367,8 +1400,8 @@ covers the preview's CDN loads and its self-check on their own. Both need intern
 Settings → Tools (`tools-settings-section.tsx`) turns each of PPM's own AI tools on or off —
 `open_file`, `open_preview`, `open_url`, `read_terminal`, `run_in_terminal`, `search_sessions`,
 `list_session_turns`, `read_session_turns`, `db_query`, `open_query`, `db_execute`,
-`create_session`, `send_to_session`, `session_status`, in the groups Tabs, Terminal, Session
-history, Database and Session collaboration (whose limits and "Ask before creating sessions" sit
+`create_session`, `send_to_session`, `session_status` and the nine [Spec mode](#spec-mode) tools, in the groups Tabs, Terminal, Session
+history, Database, Session collaboration and Spec mode (whose limits and "Ask before creating sessions" sit
 under its switches) — for Claude and Codex alike. Claude's and Codex's built-in tools and MCP servers are not there. The switches are
 `ai.ppm_tools` (`PUT /api/settings/ai` merges one tool at a time and refuses any other name), and
 `src/shared/ppm-tools.ts` answers for the server and the pane alike: a tool never switched takes
@@ -1528,3 +1561,66 @@ on the production bundle, with PPM's auth on and a SQLite file in the sandbox, a
 through both providers' cards, a wrong password then the right one, a decline, `open_query`
 followed by *Run with write access (once)*, the History, and the card on a phone.
 `PPM_DB_TOOLS_WEB_DIR` reuses a scratch build.
+
+## Spec mode
+
+Spec mode is Kiro-style spec-driven development for every provider: the chat writes what to
+build, then how, then the task list, and the user approves each document in PPM before the next
+one starts. Optionally each task is held to TDD, with PPM running the tests.
+
+**Workflows.** A new chat's welcome screen and the **Workflow** group of the composer's Modes menu
+(under the permission modes, chosen alongside one, never instead of it) offer the workflows below.
+A chat that already exists can be turned into a spec from the same group: the spec is created
+bound to it and the AI picks it up with the next message. While a workflow is on, a Spec chip in
+the composer shows it and toggles the Spec pane.
+
+| Workflow | Documents | Approvals |
+|---|---|---|
+| Chat | none | none |
+| Spec | `requirements.md` → `design.md` → `tasks.md` (or design first) | each one, in PPM |
+| Quick Spec | the same three, written in one go | automatic, except Thorough's design |
+| Bug Fix | `bugfix.md` (current / expected / unchanged behaviour) → design → tasks | each one |
+
+The documents live in the repository, `<project>/specs/<slug>/`, in Kiro's formats: EARS
+acceptance criteria under `### Requirement N` (ids `N.k`), and tasks as `- [ ] N. title` with
+`_Requirements:_`, `_Deps:_`, `_Files:_`, `_Test:_` and `_Screen:_` lines (`- [ ]* N.` is
+optional). PPM's record of the spec — approvals, check level, task runs — lives in the PPM
+directory, out of reach of the AI's file tools.
+
+**Approvals.** The AI calls `spec_submit` and is told to stop and wait. The Spec pane beside the
+chat shows the document with **Approve** and **Request changes** (with a note); either can send
+the chat its next instruction. What is approved is a hash of the document: editing it later
+makes it *stale*, which reopens it and every phase after it. A box PPM ticks in `tasks.md` does
+not count as an edit.
+
+**Checks.** The pane's header switches between:
+
+- **Standard** (default): the AI calls `task_start` and `task_done`; PPM records them.
+- **Thorough**: `design.md` must carry a `ppm-test` block with the test command
+  (`task: bun test {files}`, `suite: bun test`), and every task a `_Test:_` line. For each task the
+  AI writes the tests, calls `task_red` (PPM runs them; they must fail on an assertion, not on a
+  missing module), writes the code, and calls `task_green` (the same tests, unchanged, must pass).
+  The whole suite is then compared with a baseline taken when execution started; a new failure
+  stops later tasks until `suite_check` passes.
+
+**UI: yes.** When the requirements say so, the AI calls `spec_open_design`, which creates a PPM
+Design and opens it, and draws the screens before design.md can be approved. The drawing is
+approved on its own and hashed like a document, so changing it reopens Design.
+
+**Running tasks.** The AI decides the order when it writes the plan: `_Deps:_` says what a task
+waits for and `_Files:_` what it touches. PPM checks the plan and groups it into waves of tasks
+that neither depend on nor share files with each other. A task can be started from the pane
+(the spec chat is asked to run it), or **Run all** runs the plan wave by wave, each task in a
+child chat of its own (linked to the spec chat, at most 3 at once). A child that goes idle
+without finishing marks its task failed; the rest of its wave finishes and later waves wait.
+
+**Providers.** Claude, Codex and Antigravity get the tools from the `ppm-specs` MCP server
+(`/api/specs-mcp`, a token per chat). Cursor gets `PPM_SPEC_URL` / `PPM_SPEC_TOKEN` and calls
+`ppm spec call <tool> '<json>'`. Every provider is told the rules and where the spec stands in a
+`<ppm_spec_state>` block in front of each message. The nine tools are switches in Settings →
+Tools → Spec mode, on by default.
+
+**CLI.** `ppm spec list|status|new|approve|checks|run|stop` drives the same service;
+`approve` and `checks` refuse inside an AI chat.
+
+Code and gotchas: `src/services/specs/` and its `CLAUDE.md`. UI: `src/web/components/spec/`.
